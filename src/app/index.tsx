@@ -1,98 +1,194 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useShopping } from "@/context/ShoppingContext";
+import { Link } from "expo-router";
+import React from "react";
+import { Button, Pressable, SectionList, StyleSheet, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+
+type Produkt = {
+  nazwa: string;
+  cena: number;
+  kupione: boolean;
+};
+
+type Sekcja = {
+  title: string;
+  data: Produkt[];
+};
 
 export default function HomeScreen() {
+
+
+
+  const [filtrSklep, setFiltrSklep] = React.useState("");
+  const [produktDoUsuniecia, setProduktDoUsuniecia] = React.useState<string | null>(null);
+  const { dane, usunProdukt, toggleKupione } = useShopping();
+
+const wszystkieProdukty = dane.flatMap(sekcja =>
+  sekcja.data.map(item => ({
+    ...item,
+    sklep: sekcja.title,
+  }))
+);
+
+const doKupienia = wszystkieProdukty.filter(p => !p.kupione);
+const kupione = wszystkieProdukty.filter(p => p.kupione);
+
+const sections = [
+  { title: "Do kupienia", data: doKupienia },
+  { title: "Kupione", data: kupione },
+];
+
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <View style={styles.container}>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        <Text style={styles.title}>Lista zakupów</Text>
+        <TextInput
+          placeholder="Filtruj po sklepie"
+          value={filtrSklep}
+          onChangeText={setFiltrSklep}
+          style={styles.input}
+        />
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        <Link href="/add" asChild>
+          <Button title="Przejdź do drugiego ekranu" />
+        </Link>
+        <SectionList
+      sections={sections}
+          keyExtractor={(_, index) => index.toString()}
+          renderItem={({ item, section }) => (
+            <View style={styles.itemBox}>
+              <View style={{ flex: 1 }}>
+                <Text style={item.kupione ? styles.boughtText : styles.itemText}>
+                  {item.nazwa}
+                </Text>
+                <Text>Cena: {item.cena} zł</Text>
+                <Text>Sklep: {item.sklep}</Text>
+              </View>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+              <View>
+                <Pressable
+                  style={styles.smallButton}
+                  onPress={() => toggleKupione(item, item.sklep)}
+                >
+                  <Text style={styles.buttonText}>Kupione</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.smallButton, { backgroundColor: "darkred" }]}
+                  onPress={() => usunProdukt(item, item.sklep)}
+                >
+                  <Text style={styles.buttonText}>Usuń</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+          renderSectionHeader={({ section }) => (
+            <Text style={styles.section}>{section.title}</Text>
+          )}
+          ListEmptyComponent={<Text style={styles.empty}>Brak produktów</Text>}
+        />
+
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    padding: 20,
+    backgroundColor: "#f5f5f5"
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+  row: {
+    flexDirection: "row",
+    alignItems: "center"
   },
   title: {
-    textAlign: 'center',
+    fontSize: 30,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center"
   },
-  code: {
-    textTransform: 'uppercase',
+  section: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 20,
+    marginBottom: 6,
+    color: "#34495e"
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  item: {
+    fontSize: 16,
+    padding: 12,
+    backgroundColor: "white",
+    marginTop: 6,
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2
+  },
+  input: {
+    backgroundColor: "white",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 12,
+    marginBottom: 10,
+    borderRadius: 8
+  },
+  kupione: {
+    textDecorationLine: "line-through",
+    color: "#2ecc71"
+  },
+  rightSide: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
+  deleteButton: {
+    marginLeft: 8
+  },
+  empty: {
+    textAlign: "center",
+    marginTop: 30,
+    fontSize: 16,
+    color: "gray"
+  },
+  itemBox: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+
+  itemText: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  boughtText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#555",
+    textDecorationLine: "line-through",
+  },
+
+  smallButton: {
+    backgroundColor: "darkgreen",
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });
