@@ -1,52 +1,42 @@
 import { useShopping } from "@/context/ShoppingContext";
 import { router } from "expo-router";
 import React from "react";
-import { Button, Pressable, SectionList, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
+import {
+  Button,
+  Pressable,
+  SectionList,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-
-
-type Produkt = {
-  nazwa: string;
-  cena: number;
-  kupione: boolean;
-};
-
-type Sekcja = {
-  title: string;
-  data: Produkt[];
-};
-
 export default function HomeScreen() {
-
-
-
   const [filtrSklep, setFiltrSklep] = React.useState("");
-  const [produktDoUsuniecia, setProduktDoUsuniecia] = React.useState<string | null>(null);
   const { dane, usunProdukt, toggleKupione } = useShopping();
 
-const wszystkieProdukty = dane.flatMap(sekcja =>
-  sekcja.data.map(item => ({
-    ...item,
-    sklep: sekcja.title,
-  }))
-);
+  const wszystkieProdukty = dane.flatMap((sekcja) =>
+    sekcja.data.map((item) => ({
+      ...item,
+      sklep: sekcja.title,
+    })),
+  );
 
-const { width } = useWindowDimensions();
-const isSmallScreen = width < 400;
-const doKupienia = wszystkieProdukty.filter(p => !p.kupione);
-const kupione = wszystkieProdukty.filter(p => p.kupione);
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 400;
+  const doKupienia = wszystkieProdukty.filter((p) => !p.kupione);
+  const kupione = wszystkieProdukty.filter((p) => p.kupione);
 
-const sections = [
-  { title: "Do kupienia", data: doKupienia },
-  { title: "Kupione", data: kupione },
-];
-
+  const sections = [
+    { title: "Do kupienia", data: doKupienia },
+    { title: "Kupione", data: kupione },
+  ];
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <View style={[styles.container, { padding: width < 400 ? 10 : 20 }]}>
-
         <Text style={styles.title}>Lista zakupów</Text>
         <TextInput
           placeholder="Filtruj po sklepie"
@@ -57,12 +47,22 @@ const sections = [
 
         <Button title="Dodaj produkt" onPress={() => router.push("/add")} />
         <SectionList
-      sections={sections}
+          sections={sections}
           keyExtractor={(_, index) => index.toString()}
           renderItem={({ item, section }) => (
-            <View style={[ styles.itemBox,{ flexDirection: isSmallScreen ? "column" : "row" , gap: width < 400 ? 10 : 0}]}>
+            <View
+              style={[
+                styles.itemBox,
+                {
+                  flexDirection: isSmallScreen ? "column" : "row",
+                  gap: width < 400 ? 10 : 0,
+                },
+              ]}
+            >
               <View style={{ flex: 1 }}>
-                <Text style={item.kupione ? styles.boughtText : styles.itemText}>
+                <Text
+                  style={item.kupione ? styles.boughtText : styles.itemText}
+                >
                   {item.nazwa}
                 </Text>
                 <Text>Cena: {item.cena} zł</Text>
@@ -91,7 +91,6 @@ const sections = [
           )}
           ListEmptyComponent={<Text style={styles.empty}>Brak produktów</Text>}
         />
-
       </View>
     </SafeAreaView>
   );
@@ -101,24 +100,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#f5f5f5"
+    backgroundColor: "#f5f5f5",
   },
   row: {
     flexDirection: "row",
-    alignItems: "center"
+    alignItems: "center",
   },
   title: {
     fontSize: 30,
     fontWeight: "bold",
     marginBottom: 20,
-    textAlign: "center"
+    textAlign: "center",
   },
   section: {
     fontSize: 18,
     fontWeight: "bold",
     marginTop: 20,
     marginBottom: 6,
-    color: "#34495e"
+    color: "#34495e",
   },
   item: {
     fontSize: 16,
@@ -129,7 +128,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 3,
-    elevation: 2
+    elevation: 2,
   },
   input: {
     backgroundColor: "white",
@@ -137,25 +136,25 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     padding: 12,
     marginBottom: 10,
-    borderRadius: 8
+    borderRadius: 8,
   },
   kupione: {
     textDecorationLine: "line-through",
-    color: "#2ecc71"
+    color: "#2ecc71",
   },
   rightSide: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8
+    gap: 8,
   },
   deleteButton: {
-    marginLeft: 8
+    marginLeft: 8,
   },
   empty: {
     textAlign: "center",
     marginTop: 30,
     fontSize: 16,
-    color: "gray"
+    color: "gray",
   },
   itemBox: {
     flexDirection: "row",
