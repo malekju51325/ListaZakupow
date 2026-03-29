@@ -5,9 +5,12 @@ import { ShoppingProvider } from "../context/ShoppingContext";
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-  <ShoppingProvider>
-    <Stack />
-  </ShoppingProvider>
-</SafeAreaProvider>
+      <ShoppingProvider>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="add" options={{ title: "Dodaj produkt" }} />
+        </Stack>
+      </ShoppingProvider>
+    </SafeAreaProvider>
   );
 }

@@ -1,8 +1,8 @@
+import { useShopping } from "@/context/ShoppingContext";
 import { router } from "expo-router";
 import React from "react";
 import { Button, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useShopping } from "../context/ShoppingContext";
 
 export default function AddScreen() {
   const [nazwa, setNazwa] = React.useState("");

@@ -1,7 +1,7 @@
 import { useShopping } from "@/context/ShoppingContext";
-import { Link } from "expo-router";
+import { router } from "expo-router";
 import React from "react";
-import { Button, Pressable, SectionList, StyleSheet, Text, TextInput, View } from "react-native";
+import { Button, Pressable, SectionList, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 
@@ -32,6 +32,8 @@ const wszystkieProdukty = dane.flatMap(sekcja =>
   }))
 );
 
+const { width } = useWindowDimensions();
+const isSmallScreen = width < 400;
 const doKupienia = wszystkieProdukty.filter(p => !p.kupione);
 const kupione = wszystkieProdukty.filter(p => p.kupione);
 
@@ -43,7 +45,7 @@ const sections = [
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-      <View style={styles.container}>
+      <View style={[styles.container, { padding: width < 400 ? 10 : 20 }]}>
 
         <Text style={styles.title}>Lista zakupów</Text>
         <TextInput
@@ -53,14 +55,12 @@ const sections = [
           style={styles.input}
         />
 
-        <Link href="/add" asChild>
-          <Button title="Przejdź do drugiego ekranu" />
-        </Link>
+        <Button title="Dodaj produkt" onPress={() => router.push("/add")} />
         <SectionList
       sections={sections}
           keyExtractor={(_, index) => index.toString()}
           renderItem={({ item, section }) => (
-            <View style={styles.itemBox}>
+            <View style={[ styles.itemBox,{ flexDirection: isSmallScreen ? "column" : "row" , gap: width < 400 ? 10 : 0}]}>
               <View style={{ flex: 1 }}>
                 <Text style={item.kupione ? styles.boughtText : styles.itemText}>
                   {item.nazwa}
