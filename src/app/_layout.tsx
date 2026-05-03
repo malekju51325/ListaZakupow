@@ -1,16 +1,18 @@
 import { Stack } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ShoppingProvider } from "../context/ShoppingContext";
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
-      <ShoppingProvider>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="add" options={{ title: "Dodaj produkt" }} />
-        </Stack>
-      </ShoppingProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+  <SafeAreaProvider>
+    <ShoppingProvider>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+    </ShoppingProvider>
+  </SafeAreaProvider>
+</GestureHandlerRootView>
   );
 }
