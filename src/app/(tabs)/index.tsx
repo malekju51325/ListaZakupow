@@ -2,6 +2,16 @@ import { Colors } from "@/constants/theme";
 import { useShopping } from "@/context/ShoppingContext";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import {
+  Apple,
+  Beef,
+  Carrot,
+  Croissant,
+  Fish,
+  FlaskConical,
+  Milk,
+  Tag
+} from "lucide-react-native";
 import React from "react";
 import {
   Button,
@@ -23,6 +33,18 @@ export default function HomeScreen() {
   const { dane, sklepy,usunProdukt, toggleKupione } = useShopping();
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [expandedShop, setExpandedShop] = React.useState<string | null>(null);
+const [expandedCategory, setExpandedCategory] = React.useState<string | null>(null);
+const categoryIcons: Record<string, any> = {
+  Nabiał: Milk,
+  Pieczywo: Croissant,
+  Warzywa: Carrot,
+  Owoce: Apple,
+  Mięso: Beef,
+  Ryby: Fish,
+  Chemia: FlaskConical,
+};
+
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -225,93 +247,233 @@ export default function HomeScreen() {
             ListEmptyComponent={<Text style={styles.empty}>Brak produktów</Text>}
           />
         ) : (
-<SectionList
-  sections={dane}
-  keyExtractor={(_, index) => index.toString()}
+  <View>
 
-  renderItem={({ item, section }) => (
-    <Swipeable
-      renderRightActions={() => (
-        <Pressable
-          onPress={() => usunProdukt(item, section.title)}
-          style={styles.deleteSwipe}
-        >
-          <Ionicons name="trash-outline" size={22} color="#C54B3D" />
-        </Pressable>
-      )}
-    >
-      <View style={styles.itemBox}>
-        
-        {/* LEWA CZĘŚĆ */}
-        <View style={styles.leftSection}>
-          <Pressable onPress={() => toggleKupione(item, section.title)}>
+    {dane.map((sekcja) => {
+      const sklepObj = sklepy.find((s) => s.name === sekcja.title);
+      const kolor = sklepObj?.color || "#2E9B57";
+
+      const produktyKupione = sekcja.data.filter((p) => p.kupione);
+
+      const produktyByCategory = sekcja.data
+        .filter((p) => !p.kupione)
+        .reduce((acc: any, produkt) => {
+          const key = produkt.kategoria || "Inne";
+
+          if (!acc[key]) {
+            acc[key] = [];
+          }
+
+          acc[key].push(produkt);
+
+          return acc;
+        }, {});
+
+      const isExpanded = expandedShop === sekcja.title;
+
+      return (
+        <View key={sekcja.title}>
+
+          {/* SHOP HEADER */}
+          <Pressable
+            style={styles.shopHeader}
+            onPress={() =>
+              setExpandedShop(
+                isExpanded ? null : sekcja.title
+              )
+            }
+          >
             <View
               style={[
-                styles.checkbox,
-                item.kupione && styles.checkboxActive,
-              ]}
-            />
-          </Pressable>
-
-          <View style={{ marginLeft: 10 }}>
-            <Text
-              style={[
-                styles.itemText,
-                item.kupione && styles.boughtText,
+                styles.shopCircleBig,
+                {
+                  borderColor: kolor,
+                  backgroundColor: `${kolor}20`,
+                },
               ]}
             >
-              {item.nazwa}
+              <Text style={[styles.shopCircleText, { color: kolor }]}>
+                {sekcja.title[0]}
+              </Text>
+            </View>
+
+            <Text style={styles.shopTitle}>
+              {sekcja.title}
             </Text>
+          </Pressable>
 
-            {!!item.kategoria && (
-  <Text style={styles.meta}>
-    <Text style={{ color: "#2E9B57" }}>• </Text>
-    {item.kategoria.toLowerCase()}
-  </Text>
+          {/* CONTENT */}
+          {isExpanded && (
+            <View>
 
-)}
-          </View>
-        </View>
+              {Object.entries(produktyByCategory).map(
+  ([kategoria, produkty]: any) => {
+    const categoryKey = `${sekcja.title}-${kategoria}`;
 
-        {/* PRAWA CZĘŚĆ */}
-        <View style={styles.rightSectionRow}>
-          <Text style={styles.quantitySmall}>
-            {item.ilosc} {item.jednostka === "kg" ? "g" : "szt."}
-          </Text>
-        </View>
+    const expanded =
+      expandedCategory === categoryKey;
 
-      </View>
-    </Swipeable>
-  )}
-
-  renderSectionHeader={({ section }) => {
-    const sklepObj = sklepy.find((s) => s.name === section.title);
-    const kolor = sklepObj?.color || "#2E9B57";
+    const CategoryIcon = categoryIcons[kategoria] || Tag;
 
     return (
-      <View style={styles.shopHeader}>
-        <View
-          style={[
-            styles.shopCircleBig,
-            {
-              borderColor: kolor,
-              backgroundColor: `${kolor}20`,
-            },
-          ]}
-        >
-          <Text style={[styles.shopCircleText, { color: kolor }]}>
-            {section.title[0]}
-          </Text>
-        </View>
+                    <View key={categoryKey}>
 
-        <Text style={styles.shopTitle}>
-          {section.title}
-        </Text>
-      </View>
-    );
-  }}
-/>
-        )}
+                      {/* CATEGORY HEADER */}
+                    <Pressable
+  style={[
+    styles.categoryHeader,
+    expanded && styles.categoryHeaderActive,
+  ]}
+  onPress={() =>
+    setExpandedCategory(expanded ? null : categoryKey)
+  }
+>
+                       <>
+ 
+
+<View style={styles.categoryLeft}>
+  <CategoryIcon
+    size={18}
+    color="#2E9B57"
+    strokeWidth={2}
+  />
+
+  <Text style={styles.categoryTitle}>
+    {kategoria}
+  </Text>
+</View>
+
+  <Ionicons
+    name={expanded ? "chevron-down" : "chevron-forward"}
+    size={18}
+    color="#2E9B57"
+  />
+</>
+                      </Pressable>
+
+                      {/* PRODUCTS */}
+                      {expanded &&
+                        produkty.map((item: any) => (
+                          <Swipeable
+                            key={item.id}
+                            renderRightActions={() => (
+                              <Pressable
+                                onPress={() =>
+                                  usunProdukt(item, sekcja.title)
+                                }
+                                style={styles.deleteSwipe}
+                              >
+                                <Ionicons
+                                  name="trash-outline"
+                                  size={22}
+                                  color="#C54B3D"
+                                />
+                              </Pressable>
+                            )}
+                          >
+                            <View
+                              style={[
+                                styles.itemBox,
+                                item.kupione &&
+                                  styles.itemBoxBought,
+                              ]}
+                            >
+                              <View style={styles.leftSection}>
+                                <Pressable
+                                  onPress={() =>
+                                    toggleKupione(
+                                      item,
+                                      sekcja.title
+                                    )
+                                  }
+                                >
+                                  <View
+                                    style={[
+                                      styles.checkbox,
+                                      item.kupione &&
+                                        styles.checkboxActive,
+                                    ]}
+                                  />
+                                </Pressable>
+
+                                <View style={{ marginLeft: 10 }}>
+                                  <Text
+                                    style={[
+                                      styles.itemText,
+                                      item.kupione &&
+                                        styles.boughtText,
+                                    ]}
+                                  >
+                                    {item.nazwa}
+                                  </Text>
+
+                                  
+                                </View>
+                              </View>
+
+                              <Text style={styles.quantitySmall}>
+                                {item.ilosc}{" "}
+                                {item.jednostka === "kg"
+                                  ? "g"
+                                  : "szt."}
+                              </Text>
+                            </View>
+                          </Swipeable>
+                        ))}
+                    </View>
+                  );
+                }
+              )}
+
+              {/* KUPIONE */}
+              {produktyKupione.length > 0 && (
+                <View>
+                  <Text style={styles.kupioneHeader}>
+                    ✓ Kupione
+                  </Text>
+
+                  {produktyKupione.map((item) => (
+                   <Pressable
+  key={item.id}
+  onPress={() => toggleKupione(item, sekcja.title)}
+>
+  <View
+    style={[
+      styles.itemBox,
+      styles.itemBoxBought,
+    ]}
+  >
+                      <View style={styles.leftSection}>
+                        <View
+                          style={[
+                            styles.checkbox,
+                            styles.checkboxActive,
+                          ]}
+                        />
+
+                        <View style={{ marginLeft: 10 }}>
+                          <Text style={styles.boughtText}>
+                            {item.nazwa}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    </Pressable>
+                  ))}
+                </View>
+                
+              )}
+
+            </View>
+          )}
+
+        </View>
+      );
+    })}
+
+  </View>
+
+  )}    
       </View>
     </SafeAreaView>
   );
@@ -575,9 +737,9 @@ deleteSwipe: {
   marginBottom: 12,
 },
 itemBoxBought: {
-  backgroundColor: "#EAF5EE",
+  backgroundColor: "#F1F3F2",
   borderWidth: 1,
-  borderColor: "#CFE8D8",
+  borderColor: "#E1E5E2",
 },
 header: {
   backgroundColor: "#EAF5EE",
@@ -610,8 +772,43 @@ shopCircleText: {
 },
 
 shopTitle: {
-  fontSize: 16,
-  fontWeight: "700",
+  fontSize: 22,
+  fontWeight: "800",
   color: "#162018",
+},
+categoryHeader: {
+  backgroundColor: "#F7F8F7",
+  borderRadius: 16,
+  borderWidth: 1.5,
+  borderColor: "#DCE3DD",
+  paddingVertical: 12,
+  paddingHorizontal: 14,
+  marginBottom: 10,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+},
+
+categoryTitle: {
+  fontSize: 15,
+  fontWeight: "700",
+  color: "#2E9B57",
+},
+
+kupioneHeader: {
+  fontSize: 18,
+  fontWeight: "800",
+  color: "#6A746C",
+  marginTop: 18,
+  marginBottom: 12,
+},
+categoryHeaderActive: {
+  backgroundColor: "#EAF5EE",
+  borderColor: "#2E9B57",
+},
+categoryLeft: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 10,
 },
 });

@@ -56,6 +56,10 @@ export function ShoppingProvider({ children }: { children: React.ReactNode }) {
     "Nabiał",
     "Pieczywo",
     "Warzywa",
+    "Owoce",
+    "Mięso",
+    "Ryby",
+    "Chemia"
   ]);
 
   useEffect(() => {
