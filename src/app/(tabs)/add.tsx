@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AddScreen() {
@@ -46,7 +47,14 @@ export default function AddScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F7F8F7" }}>
-      <View style={styles.container}>
+ <KeyboardAwareScrollView
+  contentContainerStyle={styles.container}
+  enableOnAndroid={true}
+  extraScrollHeight={20}
+  extraHeight={0}
+  keyboardShouldPersistTaps="handled"
+  keyboardOpeningTime={0}
+>
 
 <View style={styles.header}>
   <Text style={styles.title}>Dodaj produkt</Text>
@@ -201,16 +209,17 @@ export default function AddScreen() {
           <Text style={styles.buttonText}>Dodaj do listy</Text>
         </Pressable>
 
-      </View>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-  },
+container: {
+  flexGrow: 1,
+  padding: 20,
+  paddingBottom: 40,
+},
 
   title: {
     fontSize: 26,

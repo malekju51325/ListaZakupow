@@ -121,34 +121,59 @@ await AsyncStorage.setItem('kategorie', JSON.stringify(nowe));
   setNowaKategoria("");
 }
 
-  async function handleUdostepnij() {
-    if (wszystkieProdukty.length === 0) {
-      Alert.alert("Pusta lista", "Nie ma produktów do udostępnienia.");
-      return;
-    }
-
-    let tekst = "Lista zakupów:\n\n";
-
-    dane.forEach((sekcja) => {
-      if (sekcja.data.length === 0) return;
-
-      tekst += `${sekcja.title.toUpperCase()}\n`;
-
-      sekcja.data.forEach((produkt) => {
-        tekst += `- ${produkt.nazwa} x${produkt.ilosc}\n`;
-      });
-
-      tekst += "\n";
-    });
-
-    try {
-      await Share.share({
-        message: tekst,
-      });
-    } catch (error) {
-      Alert.alert("Błąd", "Nie udało się udostępnić listy.");
-    }
+ async function handleUdostepnij() {
+  if (wszystkieProdukty.length === 0) {
+    Alert.alert("Pusta lista", "Nie ma produktów do udostępnienia.");
+    return;
   }
+
+  let tekst = "LISTA ZAKUPÓW\n\n";
+
+  dane.forEach((sekcja) => {
+    if (sekcja.data.length === 0) return;
+
+    tekst += `${sekcja.title.toUpperCase()}\n\n`;
+
+    const produktyByCategory = sekcja.data
+      .filter((p) => !p.kupione)
+      .reduce((acc: any, produkt) => {
+        const key = produkt.kategoria || "Inne";
+
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+
+        acc[key].push(produkt);
+
+        return acc;
+      }, {});
+
+    Object.entries(produktyByCategory).forEach(
+      ([kategoria, produkty]: any) => {
+        tekst += `• ${kategoria}\n`;
+
+        produkty.forEach((produkt: any) => {
+          const jednostka =
+            produkt.jednostka === "kg"
+              ? `${produkt.ilosc} g`
+              : `${produkt.ilosc} szt.`;
+
+          tekst += `   - ${produkt.nazwa} (${jednostka})\n`;
+        });
+
+        tekst += "\n";
+      }
+    );
+  });
+
+  try {
+    await Share.share({
+      message: tekst,
+    });
+  } catch (error) {
+    Alert.alert("Błąd", "Nie udało się udostępnić listy.");
+  }
+}
 
   return (
   <SafeAreaView style={styles.safe}>

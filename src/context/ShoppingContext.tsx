@@ -198,36 +198,42 @@ export function ShoppingProvider({ children }: { children: React.ReactNode }) {
   }
 
   function zwiekszIlosc(produkt: Produkt, sklep: string) {
-    const noweDane = dane.map((sekcja) => {
-      if (sekcja.title !== sklep) return sekcja;
+  const krok = produkt.jednostka === "kg" ? 50 : 1;
 
-      const noweProdukty = sekcja.data.map((p) =>
-        p.id === produkt.id ? { ...p, ilosc: p.ilosc + 1 } : p
-      );
+  const noweDane = dane.map((sekcja) => {
+    if (sekcja.title !== sklep) return sekcja;
 
-      return { ...sekcja, data: noweProdukty };
-    });
+    const noweProdukty = sekcja.data.map((p) =>
+      p.id === produkt.id ? { ...p, ilosc: p.ilosc + krok } : p
+    );
 
-    setDane(noweDane);
-    zapiszDane(noweDane);
-  }
+    return { ...sekcja, data: noweProdukty };
+  });
+
+  setDane(noweDane);
+  zapiszDane(noweDane);
+}
 
   function zmniejszIlosc(produkt: Produkt, sklep: string) {
-    const noweDane = dane.map((sekcja) => {
-      if (sekcja.title !== sklep) return sekcja;
+  const krok = produkt.jednostka === "kg" ? 50 : 1;
+  const minimum = produkt.jednostka === "kg" ? 50 : 1;
 
-      const noweProdukty = sekcja.data.map((p) =>
-        p.id === produkt.id
-          ? { ...p, ilosc: Math.max(1, p.ilosc - 1) }
-          : p
-      );
+  const noweDane = dane.map((sekcja) => {
+    if (sekcja.title !== sklep) return sekcja;
 
-      return { ...sekcja, data: noweProdukty };
-    });
+    const noweProdukty = sekcja.data.map((p) =>
+      p.id === produkt.id
+        ? { ...p, ilosc: Math.max(minimum, p.ilosc - krok) }
+        : p
+    );
 
-    setDane(noweDane);
-    zapiszDane(noweDane);
-  }
+    return { ...sekcja, data: noweProdukty };
+  });
+
+  setDane(noweDane);
+  zapiszDane(noweDane);
+}
+
 
   function wyczyscListe() {
     const noweDane: Sekcja[] = [];

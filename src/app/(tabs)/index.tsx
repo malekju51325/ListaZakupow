@@ -30,11 +30,16 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 400;
   const [tab, setTab] = React.useState("lista");
-  const { dane, sklepy,usunProdukt, toggleKupione } = useShopping();
+  const { dane, sklepy,usunProdukt, toggleKupione,zwiekszIlosc,
+  zmniejszIlosc } = useShopping();
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [expandedShop, setExpandedShop] = React.useState<string | null>(null);
 const [expandedCategory, setExpandedCategory] = React.useState<string | null>(null);
+const [expandedSections, setExpandedSections] = React.useState({
+  "Do kupienia": true,
+  "Kupione": true,
+});
 const categoryIcons: Record<string, any> = {
   Nabiał: Milk,
   Pieczywo: Croissant,
@@ -67,22 +72,28 @@ const categoryIcons: Record<string, any> = {
   const formatPrice = (value: number) =>
     Number(value.toFixed(2)).toString();
 
-  const sections = React.useMemo(() => {
-    const wszystkieProdukty = dane.flatMap((sekcja) =>
-      sekcja.data.map((item) => ({
-        ...item,
-        sklep: sekcja.title,
-      })),
-    );
+ const sections = React.useMemo(() => {
+  const wszystkieProdukty = dane.flatMap((sekcja) =>
+    sekcja.data.map((item) => ({
+      ...item,
+      sklep: sekcja.title,
+    })),
+  );
 
-    const doKupienia = wszystkieProdukty.filter((p) => !p.kupione);
-    const kupione = wszystkieProdukty.filter((p) => p.kupione);
+  const doKupienia = wszystkieProdukty.filter((p) => !p.kupione);
+  const kupione = wszystkieProdukty.filter((p) => p.kupione);
 
-    return [
-      { title: "Do kupienia", data: doKupienia },
-      { title: "Kupione", data: kupione },
-    ];
-  }, [dane]);
+  return [
+    {
+      title: "Do kupienia",
+      data: expandedSections["Do kupienia"] ? doKupienia : [],
+    },
+    {
+      title: "Kupione",
+      data: expandedSections["Kupione"] ? kupione : [],
+    },
+  ];
+}, [dane, expandedSections]);
 
 
   if (loading) {
@@ -207,9 +218,14 @@ const categoryIcons: Record<string, any> = {
 </View>
 
     <View style={styles.rightSectionRow}>
-      <Text style={styles.quantitySmall}>
-        {item.ilosc} {item.jednostka === "kg" ? "g" : "szt."}
-      </Text>
+      <Pressable
+  onPress={() => zwiekszIlosc(item, item.sklep)}
+  onLongPress={() => zmniejszIlosc(item, item.sklep)}
+>
+  <Text style={styles.quantitySmall}>
+    {item.ilosc} {item.jednostka === "kg" ? "g" : "szt."}
+  </Text>
+</Pressable>
 
       <View
   style={[
@@ -229,21 +245,53 @@ const categoryIcons: Record<string, any> = {
   </Swipeable>
           );
 }}
-            renderSectionHeader={({ section }) => {
-              return (
-                <View style={styles.sectionHeader}>
-                  <Text
-  style={[
-    styles.section,
-    section.title === "Kupione" && styles.sectionBought,
-  ]}
->
-  {section.title.toUpperCase()}
-</Text>
-                  
-                </View>
-              );
-            }}
+         renderSectionHeader={({ section }) => {
+  const expanded = expandedSections[section.title];
+
+  return (
+    <Pressable
+      onPress={() =>
+        setExpandedSections((prev) => ({
+          ...prev,
+          [section.title]: !prev[section.title],
+        }))
+      }
+      style={styles.sectionHeader}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <Text
+          style={[
+            styles.section,
+            section.title === "Kupione" &&
+              styles.sectionBought,
+          ]}
+        >
+          {section.title.toUpperCase()}
+        </Text>
+
+        <Ionicons
+          name={
+            expanded
+              ? "chevron-down"
+              : "chevron-forward"
+          }
+          size={18}
+          color={
+            section.title === "Kupione"
+              ? "#6A746C"
+              : "#2E9B57"
+          }
+        />
+      </View>
+    </Pressable>
+  );
+}}
             ListEmptyComponent={<Text style={styles.empty}>Brak produktów</Text>}
           />
         ) : (
@@ -411,12 +459,14 @@ const categoryIcons: Record<string, any> = {
                                 </View>
                               </View>
 
-                              <Text style={styles.quantitySmall}>
-                                {item.ilosc}{" "}
-                                {item.jednostka === "kg"
-                                  ? "g"
-                                  : "szt."}
-                              </Text>
+                             <Pressable
+  onPress={() => zwiekszIlosc(item, item.sklep)}
+  onLongPress={() => zmniejszIlosc(item, item.sklep)}
+>
+  <Text style={styles.quantitySmall}>
+    {item.ilosc} {item.jednostka === "kg" ? "g" : "szt."}
+  </Text>
+</Pressable>
                             </View>
                           </Swipeable>
                         ))}
