@@ -36,8 +36,10 @@ type ShoppingContextType = {
   usunKupione: () => void;
   sklepy: Sklep[];
   setSklepy: React.Dispatch<React.SetStateAction<Sklep[]>>;
+  usunSklep: (sklep: string) => void;
   kategorie: string[];
   setKategorie: React.Dispatch<React.SetStateAction<string[]>>;
+  usunKategorie: (kategoria: string) => void;
 };
 
 const ShoppingContext = createContext<ShoppingContextType | undefined>(
@@ -98,22 +100,6 @@ export function ShoppingProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.log('Błąd zapisu:', e);
       Alert.alert('Błąd', 'Nie udało się zapisać danych.');
-    }
-  }
-
-  async function zapiszSklepy(noweSklepy: Sklep[]) {
-    try {
-      await AsyncStorage.setItem('sklepy', JSON.stringify(noweSklepy));
-    } catch (e) {
-      console.log('Błąd zapisu sklepów:', e);
-    }
-  }
-
-  async function zapiszKategorie(noweKategorie: string[]) {
-    try {
-      await AsyncStorage.setItem('kategorie', JSON.stringify(noweKategorie));
-    } catch (e) {
-      console.log('Błąd zapisu kategorii:', e);
     }
   }
 
@@ -255,6 +241,32 @@ export function ShoppingProvider({ children }: { children: React.ReactNode }) {
     zapiszDane(noweDane);
   }
 
+  function usunKategorie(kategoria: string) {
+    const noweKategorie = kategorie.filter((k) => k !== kategoria);
+    const noweDane = dane.map((sekcja) => ({
+      ...sekcja,
+      data: sekcja.data.map((produkt) =>
+        produkt.kategoria === kategoria ? { ...produkt, kategoria: "" } : produkt
+      ),
+    }));
+
+    setKategorie(noweKategorie);
+    setDane(noweDane);
+    AsyncStorage.setItem('kategorie', JSON.stringify(noweKategorie));
+    zapiszDane(noweDane);
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  }
+
+  function usunSklep(sklep: string) {
+    const noweSklepy = sklepy.filter((s) => s.name !== sklep);
+
+    setSklepy(noweSklepy);
+    AsyncStorage.setItem('sklepy', JSON.stringify(noweSklepy));
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  }
+
 
   return (
     <ShoppingContext.Provider
@@ -269,8 +281,10 @@ export function ShoppingProvider({ children }: { children: React.ReactNode }) {
         usunKupione,
         sklepy,
         setSklepy,
+        usunSklep,
         kategorie,
         setKategorie,
+        usunKategorie,
       }}
     >
       {children}

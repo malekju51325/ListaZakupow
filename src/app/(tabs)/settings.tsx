@@ -1,4 +1,5 @@
 import { useShopping } from "@/context/ShoppingContext";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React from "react";
 import {
@@ -14,8 +15,8 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SettingsScreen() {
-  const { dane, wyczyscListe, usunKupione, sklepy, setSklepy,kategorie,
-  setKategorie, } = useShopping();
+  const { dane, wyczyscListe, usunKupione, sklepy, setSklepy,usunSklep,kategorie,
+  setKategorie, usunKategorie, } = useShopping();
   const [nowySklep, setNowySklep] = React.useState("");
   const [showAddShop, setShowAddShop] = React.useState(false);
   const [wybranyKolor, setWybranyKolor] = React.useState("#2E9B57");
@@ -121,6 +122,48 @@ await AsyncStorage.setItem('kategorie', JSON.stringify(nowe));
   setNowaKategoria("");
 }
 
+function handleUsunKategorie(kategoria: string) {
+  const produktyWKategorii = wszystkieProdukty.filter(
+    (produkt) => produkt.kategoria === kategoria
+  ).length;
+
+  const message =
+    produktyWKategorii > 0
+      ? `Ta kategoria jest używana przez ${produktyWKategorii} produktów. Po usunięciu trafią do "Inne".`
+      : "Czy na pewno chcesz usunąć tę kategorię?";
+
+  Alert.alert("Usuń kategorię", message, [
+    { text: "Anuluj", style: "cancel" },
+    {
+      text: "Usuń",
+      style: "destructive",
+      onPress: () => usunKategorie(kategoria),
+    },
+  ]);
+}
+
+function handleUsunSklep(sklep: string) {
+  const sekcjaSklepu = dane.find((sekcja) => sekcja.title === sklep);
+  const liczbaProduktow = sekcjaSklepu?.data.length ?? 0;
+
+  if (liczbaProduktow > 0) {
+    Alert.alert(
+      "Nie można usunąć sklepu",
+      `Sklep "${sklep}" ma ${liczbaProduktow} produktów. Usuń je z listy przed usunięciem sklepu.`
+    );
+    return;
+  }
+
+  Alert.alert("Usuń sklep", `Czy na pewno chcesz usunąć sklep "${sklep}"?`, [
+    { text: "Anuluj", style: "cancel" },
+    {
+      text: "Usuń",
+      style: "destructive",
+      onPress: () => usunSklep(sklep),
+    },
+  ]);
+}
+
  async function handleUdostepnij() {
   if (wszystkieProdukty.length === 0) {
     Alert.alert("Pusta lista", "Nie ma produktów do udostępnienia.");
@@ -170,7 +213,7 @@ await AsyncStorage.setItem('kategorie', JSON.stringify(nowe));
     await Share.share({
       message: tekst,
     });
-  } catch (error) {
+  } catch {
     Alert.alert("Błąd", "Nie udało się udostępnić listy.");
   }
 }
@@ -238,6 +281,13 @@ await AsyncStorage.setItem('kategorie', JSON.stringify(nowe));
           </View>
 
           <Text style={styles.shopName}>{s.name}</Text>
+
+          <Pressable
+            onPress={() => handleUsunSklep(s.name)}
+            style={styles.shopDeleteButton}
+          >
+            <Ionicons name="trash-outline" size={16} color="#C54B3D" />
+          </Pressable>
         </View>
       ))}
     </View>
@@ -295,6 +345,12 @@ await AsyncStorage.setItem('kategorie', JSON.stringify(nowe));
     {kategorie.map((k) => (
       <View key={k} style={styles.categoryChip}>
         <Text style={styles.categoryChipText}>{k}</Text>
+        <Pressable
+          onPress={() => handleUsunKategorie(k)}
+          style={styles.categoryDeleteButton}
+        >
+          <Ionicons name="trash-outline" size={14} color="#C54B3D" />
+        </Pressable>
       </View>
     ))}
   </View>
@@ -409,6 +465,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#162018",
     fontWeight: "500",
+    flex: 1,
+  },
+
+  shopDeleteButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F8ECEA",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   addButton: {
@@ -469,6 +535,9 @@ chipsContainer: {
 },
 
 categoryChip: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 8,
   paddingVertical: 8,
   paddingHorizontal: 14,
   borderRadius: 20,
@@ -481,5 +550,14 @@ categoryChipText: {
   fontSize: 14,
   fontWeight: "600",
   color: "#2E9B57",
+},
+
+categoryDeleteButton: {
+  width: 22,
+  height: 22,
+  borderRadius: 11,
+  backgroundColor: "#F8ECEA",
+  alignItems: "center",
+  justifyContent: "center",
 },
 });

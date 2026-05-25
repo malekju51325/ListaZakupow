@@ -20,6 +20,7 @@ import {
   SectionList,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -28,15 +29,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
-  const isSmallScreen = width < 400;
   const [tab, setTab] = React.useState("lista");
+  const [searchText, setSearchText] = React.useState("");
   const { dane, sklepy,usunProdukt, toggleKupione,zwiekszIlosc,
   zmniejszIlosc } = useShopping();
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [expandedShop, setExpandedShop] = React.useState<string | null>(null);
 const [expandedCategory, setExpandedCategory] = React.useState<string | null>(null);
-const [expandedSections, setExpandedSections] = React.useState({
+const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({
   "Do kupienia": true,
   "Kupione": true,
 });
@@ -50,6 +51,24 @@ const categoryIcons: Record<string, any> = {
   Chemia: FlaskConical,
 };
 
+const normalizedSearchText = searchText.trim().toLowerCase();
+const isSearching = normalizedSearchText.length > 0;
+
+const filteredDane = React.useMemo(() => {
+  if (!isSearching) {
+    return dane;
+  }
+
+  return dane
+    .map((sekcja) => ({
+      ...sekcja,
+      data: sekcja.data.filter((produkt) =>
+        produkt.nazwa.toLowerCase().includes(normalizedSearchText),
+      ),
+    }))
+    .filter((sekcja) => sekcja.data.length > 0);
+}, [dane, isSearching, normalizedSearchText]);
+
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -59,7 +78,7 @@ const categoryIcons: Record<string, any> = {
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      } catch (e) {
+      } catch {
         setError("Błąd ładowania danych");
       } finally {
         setLoading(false);
@@ -69,11 +88,8 @@ const categoryIcons: Record<string, any> = {
     fetchData();
   }, []);
 
-  const formatPrice = (value: number) =>
-    Number(value.toFixed(2)).toString();
-
  const sections = React.useMemo(() => {
-  const wszystkieProdukty = dane.flatMap((sekcja) =>
+  const wszystkieProdukty = filteredDane.flatMap((sekcja) =>
     sekcja.data.map((item) => ({
       ...item,
       sklep: sekcja.title,
@@ -86,14 +102,14 @@ const categoryIcons: Record<string, any> = {
   return [
     {
       title: "Do kupienia",
-      data: expandedSections["Do kupienia"] ? doKupienia : [],
+      data: isSearching || expandedSections["Do kupienia"] ? doKupienia : [],
     },
     {
       title: "Kupione",
-      data: expandedSections["Kupione"] ? kupione : [],
+      data: isSearching || expandedSections["Kupione"] ? kupione : [],
     },
   ];
-}, [dane, expandedSections]);
+}, [filteredDane, expandedSections, isSearching]);
 
 
   if (loading) {
@@ -164,6 +180,29 @@ const categoryIcons: Record<string, any> = {
       Według sklepu
     </Text>
   </Pressable>
+</View>
+
+<View style={styles.searchBox}>
+  <Ionicons name="search-outline" size={20} color="#6A746C" />
+  <TextInput
+    value={searchText}
+    onChangeText={setSearchText}
+    placeholder="Szukaj produktu"
+    placeholderTextColor="#8A928C"
+    style={styles.searchInput}
+    returnKeyType="search"
+    autoCapitalize="none"
+    autoCorrect={false}
+  />
+  {isSearching && (
+    <Pressable
+      onPress={() => setSearchText("")}
+      style={styles.searchClear}
+      hitSlop={8}
+    >
+      <Ionicons name="close-circle" size={20} color="#6A746C" />
+    </Pressable>
+  )}
 </View>
   
 
@@ -297,7 +336,11 @@ const categoryIcons: Record<string, any> = {
         ) : (
   <View>
 
-    {dane.map((sekcja) => {
+    {filteredDane.length === 0 ? (
+      <Text style={styles.empty}>
+        {isSearching ? "Brak wynikĂłw" : "Brak produktĂłw"}
+      </Text>
+    ) : filteredDane.map((sekcja) => {
       const sklepObj = sklepy.find((s) => s.name === sekcja.title);
       const kolor = sklepObj?.color || "#2E9B57";
 
@@ -318,6 +361,7 @@ const categoryIcons: Record<string, any> = {
         }, {});
 
       const isExpanded = expandedShop === sekcja.title;
+      const showShopContent = isSearching || isExpanded;
 
       return (
         <View key={sekcja.title}>
@@ -351,7 +395,7 @@ const categoryIcons: Record<string, any> = {
           </Pressable>
 
           {/* CONTENT */}
-          {isExpanded && (
+          {showShopContent && (
             <View>
 
               {Object.entries(produktyByCategory).map(
@@ -359,7 +403,7 @@ const categoryIcons: Record<string, any> = {
     const categoryKey = `${sekcja.title}-${kategoria}`;
 
     const expanded =
-      expandedCategory === categoryKey;
+      isSearching || expandedCategory === categoryKey;
 
     const CategoryIcon = categoryIcons[kategoria] || Tag;
 
@@ -460,8 +504,8 @@ const categoryIcons: Record<string, any> = {
                               </View>
 
                              <Pressable
-  onPress={() => zwiekszIlosc(item, item.sklep)}
-  onLongPress={() => zmniejszIlosc(item, item.sklep)}
+  onPress={() => zwiekszIlosc(item, sekcja.title)}
+  onLongPress={() => zmniejszIlosc(item, sekcja.title)}
 >
   <Text style={styles.quantitySmall}>
     {item.ilosc} {item.jednostka === "kg" ? "g" : "szt."}
@@ -749,6 +793,34 @@ tabs: {
   flexDirection: "row",
   gap: 10,
   marginBottom: 14,
+},
+
+searchBox: {
+  backgroundColor: "#fff",
+  borderRadius: 16,
+  borderWidth: 1,
+  borderColor: "#E1E5E2",
+  paddingHorizontal: 14,
+  marginBottom: 14,
+  minHeight: 48,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 10,
+},
+
+searchInput: {
+  flex: 1,
+  fontSize: 16,
+  fontWeight: "600",
+  color: "#162018",
+  paddingVertical: 10,
+},
+
+searchClear: {
+  width: 28,
+  height: 28,
+  alignItems: "center",
+  justifyContent: "center",
 },
 
 tabButton: {
