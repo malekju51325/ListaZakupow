@@ -1,33 +1,33 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  loadShoppingData,
+  saveCategories,
+  saveShoppingList,
+  saveShops,
+} from '@/services/shoppingStorage';
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_SHOPS,
+} from '@/constants/shoppingDefaults';
+import { Produkt, Sekcja, Sklep } from '@/types/shopping';
 import * as Haptics from 'expo-haptics';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 
-type Produkt = {
-  id: number;
-  nazwa: string;
-  kupione: boolean;
-  ilosc: number;
-  jednostka: string;
-  kategoria: string;
-
-};
-
-type Sklep = {
-  name: string;
-  color: string;
-};
-
-
-type Sekcja = {
-  title: string;
-  data: Produkt[];
-};
-
 type ShoppingContextType = {
   dane: Sekcja[];
-  dodajProdukt: (nazwa: string, sklep: string, ilosc: number, jednostka: string,
-    kategoria: string) => void;
+  isLoading: boolean;
+  isSaving: boolean;
+  storageError: string | null;
+  lastSavedAt: number | null;
+  clearStorageError: () => void;
+  reloadShoppingData: () => Promise<void>;
+  dodajProdukt: (
+    nazwa: string,
+    sklep: string,
+    ilosc: number,
+    jednostka: string,
+    kategoria: string,
+  ) => void;
   usunProdukt: (produkt: Produkt, sklep: string) => void;
   toggleKupione: (produkt: Produkt, sklep: string) => void;
   zwiekszIlosc: (produkt: Produkt, sklep: string) => void;
@@ -35,10 +35,10 @@ type ShoppingContextType = {
   wyczyscListe: () => void;
   usunKupione: () => void;
   sklepy: Sklep[];
-  setSklepy: React.Dispatch<React.SetStateAction<Sklep[]>>;
+  dodajSklep: (nazwa: string, kolor: string) => Promise<void>;
   usunSklep: (sklep: string) => void;
   kategorie: string[];
-  setKategorie: React.Dispatch<React.SetStateAction<string[]>>;
+  dodajKategorie: (kategoria: string) => Promise<void>;
   usunKategorie: (kategoria: string) => void;
 };
 
@@ -47,84 +47,116 @@ const ShoppingContext = createContext<ShoppingContextType | undefined>(
 );
 
 export function ShoppingProvider({ children }: { children: React.ReactNode }) {
-
   const [dane, setDane] = useState<Sekcja[]>([]);
-  const [sklepy, setSklepy] = useState<Sklep[]>([
-    { name: "Biedronka", color: "#C54B3D" },
-    { name: "Lidl", color: "#3178C6" },
-  ]);
+  const [sklepy, setSklepy] = useState<Sklep[]>(DEFAULT_SHOPS);
+  const [kategorie, setKategorie] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
-  const [kategorie, setKategorie] = useState<string[]>([
-    "Nabiał",
-    "Pieczywo",
-    "Warzywa",
-    "Owoce",
-    "Mięso",
-    "Ryby",
-    "Chemia"
-  ]);
+  const reloadShoppingData = React.useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setStorageError(null);
 
-  useEffect(() => {
-    const wczytaj = async () => {
-      try {
-        const zapisane = await AsyncStorage.getItem('listaZakupow');
-        const zapisaneSklepy = await AsyncStorage.getItem('sklepy');
-        const zapisaneKategorie = await AsyncStorage.getItem('kategorie');
+      const zapisane = await loadShoppingData();
 
-        if (zapisaneSklepy) {
-          setSklepy(JSON.parse(zapisaneSklepy));
-        }
-
-        if (zapisaneKategorie) {
-          setKategorie(JSON.parse(zapisaneKategorie));
-        }
-
-        if (zapisane) {
-          setDane(JSON.parse(zapisane));
-        } else {
-          setDane([]);
-        }
-      } catch (e) {
-        console.log('Błąd wczytywania:', e);
-        Alert.alert('Błąd', 'Nie udało się wczytać danych.');
+      if (zapisane.sklepy) {
+        setSklepy(zapisane.sklepy);
       }
-    };
 
-    wczytaj();
+      if (zapisane.kategorie) {
+        setKategorie(zapisane.kategorie);
+      }
+
+      if (zapisane.dane) {
+        setDane(zapisane.dane);
+      } else {
+        setDane([]);
+      }
+    } catch (e) {
+      console.log('Błąd wczytywania:', e);
+      setStorageError('Nie udało się wczytać danych.');
+      Alert.alert('Błąd', 'Nie udało się wczytać danych.');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    // Context jest jedynym miejscem hydratacji danych, żeby ekrany nie musiały znać AsyncStorage.
+    reloadShoppingData();
+  }, [reloadShoppingData]);
 
-  async function zapiszDane(noweDane: Sekcja[]) {
+  // Jeden wrapper daje ten sam feedback dla każdego zapisu do pamięci telefonu.
+  async function wykonajZapis(akcja: () => Promise<void>, komunikat: string) {
     try {
-      await AsyncStorage.setItem('listaZakupow', JSON.stringify(noweDane));
+      setIsSaving(true);
+      setStorageError(null);
+      await akcja();
+      setLastSavedAt(Date.now());
     } catch (e) {
       console.log('Błąd zapisu:', e);
-      Alert.alert('Błąd', 'Nie udało się zapisać danych.');
+      setStorageError(komunikat);
+      Alert.alert('Błąd', komunikat);
+    } finally {
+      setIsSaving(false);
     }
   }
 
-  function dodajProdukt(nazwa: string, sklep: string, ilosc: number, jednostka: string,
-    kategoria: string) {
+  async function zapiszDane(noweDane: Sekcja[]) {
+    await wykonajZapis(
+      () => saveShoppingList(noweDane),
+      'Nie udało się zapisać danych.',
+    );
+  }
+
+  async function zapiszSklepy(noweSklepy: Sklep[]) {
+    await wykonajZapis(
+      () => saveShops(noweSklepy),
+      'Nie udało się zapisać sklepów.',
+    );
+  }
+
+  async function zapiszKategorie(noweKategorie: string[]) {
+    await wykonajZapis(
+      () => saveCategories(noweKategorie),
+      'Nie udało się zapisać kategorii.',
+    );
+  }
+
+  function dodajProdukt(
+    nazwa: string,
+    sklep: string,
+    ilosc: number,
+    jednostka: string,
+    kategoria: string,
+  ) {
     const sekcjaIndex = dane.findIndex((s) => s.title === sklep);
 
     let noweDane: Sekcja[];
     if (!sklep) {
-      alert("Wybierz sklep");
+      alert('Wybierz sklep');
       return;
     }
     if (sekcjaIndex !== -1) {
       noweDane = dane.map((sekcja, index) =>
         index === sekcjaIndex
           ? {
-            ...sekcja,
-            data: [
-              {
-                id: Date.now(), nazwa, ilosc, jednostka,
-                kategoria, kupione: false
-              },
-              ...sekcja.data,
-            ],
-          }
+              ...sekcja,
+              data: [
+                {
+                  id: Date.now(),
+                  nazwa,
+                  ilosc,
+                  jednostka,
+                  kategoria,
+                  kupione: false,
+                },
+                ...sekcja.data,
+              ],
+            }
           : sekcja,
       );
     } else {
@@ -132,10 +164,16 @@ export function ShoppingProvider({ children }: { children: React.ReactNode }) {
         ...dane,
         {
           title: sklep,
-          data: [{
-            id: Date.now(), nazwa, ilosc, jednostka,
-            kategoria, kupione: false
-          }],
+          data: [
+            {
+              id: Date.now(),
+              nazwa,
+              ilosc,
+              jednostka,
+              kategoria,
+              kupione: false,
+            },
+          ],
         },
       ];
     }
@@ -184,42 +222,41 @@ export function ShoppingProvider({ children }: { children: React.ReactNode }) {
   }
 
   function zwiekszIlosc(produkt: Produkt, sklep: string) {
-  const krok = produkt.jednostka === "kg" ? 50 : 1;
+    const krok = produkt.jednostka === 'kg' ? 50 : 1;
 
-  const noweDane = dane.map((sekcja) => {
-    if (sekcja.title !== sklep) return sekcja;
+    const noweDane = dane.map((sekcja) => {
+      if (sekcja.title !== sklep) return sekcja;
 
-    const noweProdukty = sekcja.data.map((p) =>
-      p.id === produkt.id ? { ...p, ilosc: p.ilosc + krok } : p
-    );
+      const noweProdukty = sekcja.data.map((p) =>
+        p.id === produkt.id ? { ...p, ilosc: p.ilosc + krok } : p,
+      );
 
-    return { ...sekcja, data: noweProdukty };
-  });
+      return { ...sekcja, data: noweProdukty };
+    });
 
-  setDane(noweDane);
-  zapiszDane(noweDane);
-}
+    setDane(noweDane);
+    zapiszDane(noweDane);
+  }
 
   function zmniejszIlosc(produkt: Produkt, sklep: string) {
-  const krok = produkt.jednostka === "kg" ? 50 : 1;
-  const minimum = produkt.jednostka === "kg" ? 50 : 1;
+    const krok = produkt.jednostka === 'kg' ? 50 : 1;
+    const minimum = produkt.jednostka === 'kg' ? 50 : 1;
 
-  const noweDane = dane.map((sekcja) => {
-    if (sekcja.title !== sklep) return sekcja;
+    const noweDane = dane.map((sekcja) => {
+      if (sekcja.title !== sklep) return sekcja;
 
-    const noweProdukty = sekcja.data.map((p) =>
-      p.id === produkt.id
-        ? { ...p, ilosc: Math.max(minimum, p.ilosc - krok) }
-        : p
-    );
+      const noweProdukty = sekcja.data.map((p) =>
+        p.id === produkt.id
+          ? { ...p, ilosc: Math.max(minimum, p.ilosc - krok) }
+          : p,
+      );
 
-    return { ...sekcja, data: noweProdukty };
-  });
+      return { ...sekcja, data: noweProdukty };
+    });
 
-  setDane(noweDane);
-  zapiszDane(noweDane);
-}
-
+    setDane(noweDane);
+    zapiszDane(noweDane);
+  }
 
   function wyczyscListe() {
     const noweDane: Sekcja[] = [];
@@ -241,18 +278,40 @@ export function ShoppingProvider({ children }: { children: React.ReactNode }) {
     zapiszDane(noweDane);
   }
 
+  async function dodajSklep(nazwa: string, kolor: string) {
+    const noweSklepy = [
+      ...sklepy,
+      {
+        name: nazwa,
+        color: kolor,
+      },
+    ];
+
+    setSklepy(noweSklepy);
+    await zapiszSklepy(noweSklepy);
+  }
+
+  async function dodajKategorie(kategoria: string) {
+    const noweKategorie = [...kategorie, kategoria];
+
+    setKategorie(noweKategorie);
+    await zapiszKategorie(noweKategorie);
+  }
+
   function usunKategorie(kategoria: string) {
     const noweKategorie = kategorie.filter((k) => k !== kategoria);
     const noweDane = dane.map((sekcja) => ({
       ...sekcja,
       data: sekcja.data.map((produkt) =>
-        produkt.kategoria === kategoria ? { ...produkt, kategoria: "" } : produkt
+        produkt.kategoria === kategoria
+          ? { ...produkt, kategoria: '' }
+          : produkt,
       ),
     }));
 
     setKategorie(noweKategorie);
     setDane(noweDane);
-    AsyncStorage.setItem('kategorie', JSON.stringify(noweKategorie));
+    zapiszKategorie(noweKategorie);
     zapiszDane(noweDane);
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -262,16 +321,21 @@ export function ShoppingProvider({ children }: { children: React.ReactNode }) {
     const noweSklepy = sklepy.filter((s) => s.name !== sklep);
 
     setSklepy(noweSklepy);
-    AsyncStorage.setItem('sklepy', JSON.stringify(noweSklepy));
+    zapiszSklepy(noweSklepy);
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   }
-
 
   return (
     <ShoppingContext.Provider
       value={{
         dane,
+        isLoading,
+        isSaving,
+        storageError,
+        lastSavedAt,
+        clearStorageError: () => setStorageError(null),
+        reloadShoppingData,
         dodajProdukt,
         usunProdukt,
         toggleKupione,
@@ -280,10 +344,10 @@ export function ShoppingProvider({ children }: { children: React.ReactNode }) {
         wyczyscListe,
         usunKupione,
         sklepy,
-        setSklepy,
+        dodajSklep,
         usunSklep,
         kategorie,
-        setKategorie,
+        dodajKategorie,
         usunKategorie,
       }}
     >

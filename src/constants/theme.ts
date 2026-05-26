@@ -3,24 +3,24 @@
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
  */
 
-import "@/global.css";
+import '@/global.css';
 
-import { Platform } from "react-native";
+import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: "#000000",
-    background: "#d3dedcef",
-    backgroundElement: "#F0F0F3",
-    backgroundSelected: "#E0E1E6",
-    textSecondary: "#60646C",
+    text: '#000000',
+    background: '#d3dedcef',
+    backgroundElement: '#F0F0F3',
+    backgroundSelected: '#E0E1E6',
+    textSecondary: '#60646C',
   },
   dark: {
-    text: "#ffffff",
-    background: "#000000",
-    backgroundElement: "#212225",
-    backgroundSelected: "#2E3135",
-    textSecondary: "#B0B4BA",
+    text: '#ffffff',
+    background: '#000000',
+    backgroundElement: '#212225',
+    backgroundSelected: '#2E3135',
+    textSecondary: '#B0B4BA',
   },
 } as const;
 
@@ -29,25 +29,25 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: "system-ui",
+    sans: 'system-ui',
     /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: "ui-serif",
+    serif: 'ui-serif',
     /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: "ui-rounded",
+    rounded: 'ui-rounded',
     /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: "ui-monospace",
+    mono: 'ui-monospace',
   },
   default: {
-    sans: "normal",
-    serif: "serif",
-    rounded: "normal",
-    mono: "monospace",
+    sans: 'normal',
+    serif: 'serif',
+    rounded: 'normal',
+    mono: 'monospace',
   },
   web: {
-    sans: "var(--font-display)",
-    serif: "var(--font-serif)",
-    rounded: "var(--font-rounded)",
-    mono: "var(--font-mono)",
+    sans: 'var(--font-display)',
+    serif: 'var(--font-serif)',
+    rounded: 'var(--font-rounded)',
+    mono: 'var(--font-mono)',
   },
 });
 
@@ -59,6 +59,43 @@ export const Spacing = {
   four: 24,
   five: 32,
   six: 64,
+} as const;
+
+export const ShoppingTheme = {
+  colors: {
+    background: '#F7F8F7',
+    card: '#fff',
+    header: '#EAF5EE',
+    input: '#F7F8F7',
+    selected: '#EAF5EE',
+    muted: '#F1F3F2',
+    tabIdle: '#E6E8E7',
+    border: '#E1E5E2',
+    borderMuted: '#DCE3DD',
+    text: '#162018',
+    textMuted: '#6A746C',
+    placeholder: '#8A928C',
+    primary: '#2E9B57',
+    success: '#2ecc71',
+    danger: '#C54B3D',
+    dangerSoft: '#F8ECEA',
+    warning: '#F3B64B',
+    info: '#3178C6',
+    shadow: '#000',
+  },
+  radius: {
+    small: 8,
+    medium: 14,
+    large: 16,
+    card: 20,
+  },
+  spacing: {
+    xs: 6,
+    sm: 10,
+    md: 14,
+    lg: 16,
+    xl: 20,
+  },
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;

@@ -1,7 +1,16 @@
-import { Colors } from "@/constants/theme";
-import { useShopping } from "@/context/ShoppingContext";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { ShoppingTheme } from '@/constants/theme';
+import { ProductRow } from '@/components/shopping/ProductRow';
+import { SearchBar } from '@/components/shopping/SearchBar';
+import { ShoppingTabs } from '@/components/shopping/ShoppingTabs';
+import { useShopping } from '@/context/ShoppingContext';
+import {
+  buildShoppingSections,
+  filterShoppingData,
+  groupProductsByCategory,
+  isShoppingSearchActive,
+} from '@/utils/shoppingSelectors';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import {
   Apple,
   Beef,
@@ -10,38 +19,31 @@ import {
   Fish,
   FlaskConical,
   Milk,
-  Tag
-} from "lucide-react-native";
-import React from "react";
+  Tag,
+} from 'lucide-react-native';
+import React from 'react';
 import {
-  Button,
   Image,
   Pressable,
+  ScrollView,
   SectionList,
   StyleSheet,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
-} from "react-native";
-import { Swipeable } from "react-native-gesture-handler";
-import { SafeAreaView } from "react-native-safe-area-context";
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Produkt } from '@/types/shopping';
 
-export default function HomeScreen() {
-  const { width } = useWindowDimensions();
-  const [tab, setTab] = React.useState("lista");
-  const [searchText, setSearchText] = React.useState("");
-  const { dane, sklepy,usunProdukt, toggleKupione,zwiekszIlosc,
-  zmniejszIlosc } = useShopping();
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [expandedShop, setExpandedShop] = React.useState<string | null>(null);
-const [expandedCategory, setExpandedCategory] = React.useState<string | null>(null);
-const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({
-  "Do kupienia": true,
-  "Kupione": true,
-});
-const categoryIcons: Record<string, any> = {
+const { colors, radius } = ShoppingTheme;
+
+type CategoryIcon = React.ComponentType<{
+  size?: number;
+  color?: string;
+  strokeWidth?: number;
+}>;
+
+const CATEGORY_ICONS: Record<string, CategoryIcon> = {
   Nabiał: Milk,
   Pieczywo: Croissant,
   Warzywa: Carrot,
@@ -51,523 +53,396 @@ const categoryIcons: Record<string, any> = {
   Chemia: FlaskConical,
 };
 
-const normalizedSearchText = searchText.trim().toLowerCase();
-const isSearching = normalizedSearchText.length > 0;
+export default function HomeScreen() {
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+  const contentPadding = width < 400 ? 10 : 20;
+  const [tab, setTab] = React.useState<'lista' | 'sklep'>('lista');
+  const [searchText, setSearchText] = React.useState('');
+  const {
+    dane,
+    sklepy,
+    isLoading,
+    isSaving,
+    storageError,
+    lastSavedAt,
+    clearStorageError,
+    reloadShoppingData,
+    usunProdukt,
+    toggleKupione,
+    zwiekszIlosc,
+    zmniejszIlosc,
+  } = useShopping();
+  const [expandedShop, setExpandedShop] = React.useState<string | null>(null);
+  const [expandedCategory, setExpandedCategory] = React.useState<string | null>(
+    null,
+  );
+  const [expandedSections, setExpandedSections] = React.useState<
+    Record<string, boolean>
+  >({
+    'Do kupienia': true,
+    Kupione: true,
+  });
+  const isSearching = isShoppingSearchActive(searchText);
 
-const filteredDane = React.useMemo(() => {
-  if (!isSearching) {
-    return dane;
-  }
+  const shopColorByName = React.useMemo(() => {
+    return new Map(sklepy.map((sklep) => [sklep.name, sklep.color]));
+  }, [sklepy]);
 
-  return dane
-    .map((sekcja) => ({
+  const filteredDane = React.useMemo(() => {
+    return filterShoppingData(dane, searchText);
+  }, [dane, searchText]);
+
+  const sections = React.useMemo(() => {
+    return buildShoppingSections(filteredDane, expandedSections, isSearching);
+  }, [filteredDane, expandedSections, isSearching]);
+
+  const shopSections = React.useMemo(() => {
+    return filteredDane.map((sekcja) => ({
       ...sekcja,
-      data: sekcja.data.filter((produkt) =>
-        produkt.nazwa.toLowerCase().includes(normalizedSearchText),
-      ),
-    }))
-    .filter((sekcja) => sekcja.data.length > 0);
-}, [dane, isSearching, normalizedSearchText]);
+      color: shopColorByName.get(sekcja.title) ?? colors.primary,
+      boughtProducts: sekcja.data.filter((produkt) => produkt.kupione),
+      productsByCategory: groupProductsByCategory(sekcja.data),
+    }));
+  }, [filteredDane, shopColorByName]);
 
-
-  React.useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      } catch {
-        setError("Błąd ładowania danych");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
- const sections = React.useMemo(() => {
-  const wszystkieProdukty = filteredDane.flatMap((sekcja) =>
-    sekcja.data.map((item) => ({
-      ...item,
-      sklep: sekcja.title,
-    })),
+  const handleToggleProduct = React.useCallback(
+    (item: Produkt, sklep: string) => {
+      toggleKupione(item, sklep);
+    },
+    [toggleKupione],
   );
 
-  const doKupienia = wszystkieProdukty.filter((p) => !p.kupione);
-  const kupione = wszystkieProdukty.filter((p) => p.kupione);
-
-  return [
-    {
-      title: "Do kupienia",
-      data: isSearching || expandedSections["Do kupienia"] ? doKupienia : [],
+  const handleDeleteProduct = React.useCallback(
+    (item: Produkt, sklep: string) => {
+      usunProdukt(item, sklep);
     },
-    {
-      title: "Kupione",
-      data: isSearching || expandedSections["Kupione"] ? kupione : [],
+    [usunProdukt],
+  );
+
+  const handleIncreaseProduct = React.useCallback(
+    (item: Produkt, sklep: string) => {
+      zwiekszIlosc(item, sklep);
     },
-  ];
-}, [filteredDane, expandedSections, isSearching]);
+    [zwiekszIlosc],
+  );
 
+  const handleDecreaseProduct = React.useCallback(
+    (item: Produkt, sklep: string) => {
+      zmniejszIlosc(item, sklep);
+    },
+    [zmniejszIlosc],
+  );
 
-  if (loading) {
+  const openProductDetails = React.useCallback(
+    (item: Produkt, sklep: string) => {
+      router.push({
+        pathname: '../product-details',
+        // Parametry są proste tekstowo, żeby ekran szczegółów nie musiał znać struktury całej listy.
+        params: {
+          nazwa: item.nazwa,
+          sklep,
+          ilosc: String(item.ilosc),
+          jednostka: item.jednostka,
+          kategoria: item.kategoria || 'Inne',
+          kupione: item.kupione ? 'tak' : 'nie',
+        },
+      });
+    },
+    [],
+  );
+
+  const renderProductItem = React.useCallback(
+    ({ item }: { item: Produkt & { sklep: string } }) => {
+      const kolor = shopColorByName.get(item.sklep) ?? colors.primary;
+
+      return (
+        <ProductRow
+          item={item}
+          sklep={item.sklep}
+          shopColor={kolor}
+          showCategory
+          showShopBadge
+          onToggle={handleToggleProduct}
+          onDelete={handleDeleteProduct}
+          onIncrease={handleIncreaseProduct}
+          onDecrease={handleDecreaseProduct}
+          onOpen={openProductDetails}
+        />
+      );
+    },
+    [
+      handleDecreaseProduct,
+      handleDeleteProduct,
+      handleIncreaseProduct,
+      handleToggleProduct,
+      openProductDetails,
+      shopColorByName,
+    ],
+  );
+
+  const renderSectionHeader = React.useCallback(
+    ({ section }: { section: { title: string } }) => {
+      const expanded = expandedSections[section.title];
+
+      return (
+        <Pressable
+          onPress={() =>
+            setExpandedSections((prev) => ({
+              ...prev,
+              [section.title]: !prev[section.title],
+            }))
+          }
+          style={styles.sectionHeader}
+        >
+          <View style={styles.sectionHeaderRow}>
+            <Text
+              style={[
+                styles.section,
+                section.title === 'Kupione' && styles.sectionBought,
+              ]}
+            >
+              {section.title.toUpperCase()}
+            </Text>
+
+            <Ionicons
+              name={expanded ? 'chevron-down' : 'chevron-forward'}
+              size={18}
+              color={
+                section.title === 'Kupione' ? colors.textMuted : colors.primary
+              }
+            />
+          </View>
+        </Pressable>
+      );
+    },
+    [expandedSections],
+  );
+
+  if (isLoading) {
     return (
       <SafeAreaView style={{ flex: 1 }}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <View
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+        >
           <Text>Ładowanie...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  if (error) {
-    return (
-      <SafeAreaView style={{ flex: 1 }}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>{error}</Text>
-          <Button title="Spróbuj ponownie" onPress={() => router.replace("/")} />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.light.background }} edges={["top"]}>
-      <View style={[styles.container, { padding: width < 400 ? 10 : 20 }]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top']}
+    >
+      <View
+        style={[
+          styles.container,
+          {
+            padding: contentPadding,
+            // W poziomie nie rozciągamy listy na całą szerokość, bo długie wiersze są wtedy trudniejsze do skanowania.
+            maxWidth: isLandscape ? 760 : undefined,
+            alignSelf: 'center',
+            width: '100%',
+          },
+        ]}
+      >
         <View style={styles.header}>
-        <View style={styles.headerRow}>
-    <Image
-      source={require("../../../assets/images/app-icon.png")}
-      style={styles.headerIcon}
-    />
+          <View style={styles.headerRow}>
+            <Image
+              source={require('../../../assets/images/app-icon.png')}
+              style={styles.headerIcon}
+            />
 
-    <Text style={styles.title}>Lista zakupów</Text>
-  </View>
+            <Text style={styles.title}>Lista zakupów</Text>
+          </View>
         </View>
-       <View style={styles.tabs}>
-  <Pressable
-    onPress={() => setTab("lista")}
-    style={[
-      styles.tabButton,
-      tab === "lista" && styles.tabButtonActive,
-    ]}
-  >
-    <Text
-      style={[
-        styles.tabText,
-        tab === "lista" && styles.tabTextActive,
-      ]}
-    >
-      Wszystkie
-    </Text>
-  </Pressable>
+        <ShoppingTabs activeTab={tab} onChangeTab={setTab} />
 
-  <Pressable
-    onPress={() => setTab("sklep")}
-    style={[
-      styles.tabButton,
-      tab === "sklep" && styles.tabButtonActive,
-    ]}
-  >
-    <Text
-      style={[
-        styles.tabText,
-        tab === "sklep" && styles.tabTextActive,
-      ]}
-    >
-      Według sklepu
-    </Text>
-  </Pressable>
-</View>
+        <SearchBar value={searchText} onChangeText={setSearchText} />
 
-<View style={styles.searchBox}>
-  <Ionicons name="search-outline" size={20} color="#6A746C" />
-  <TextInput
-    value={searchText}
-    onChangeText={setSearchText}
-    placeholder="Szukaj produktu"
-    placeholderTextColor="#8A928C"
-    style={styles.searchInput}
-    returnKeyType="search"
-    autoCapitalize="none"
-    autoCorrect={false}
-  />
-  {isSearching && (
-    <Pressable
-      onPress={() => setSearchText("")}
-      style={styles.searchClear}
-      hitSlop={8}
-    >
-      <Ionicons name="close-circle" size={20} color="#6A746C" />
-    </Pressable>
-  )}
-</View>
-  
+        {storageError && (
+          <View style={styles.statusError}>
+            <Text style={styles.statusErrorText}>{storageError}</Text>
+            <View style={styles.statusActions}>
+              <Pressable
+                style={styles.retryButton}
+                onPress={reloadShoppingData}
+              >
+                <Text style={styles.retryButtonText}>Spróbuj ponownie</Text>
+              </Pressable>
 
+              <Pressable onPress={clearStorageError}>
+                <Text style={styles.dismissErrorText}>Ukryj</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
-        {tab === "lista" ? (
+        {isSaving && <Text style={styles.statusText}>Zapisywanie...</Text>}
+
+        {!isSaving && !!lastSavedAt && (
+          <Text style={styles.statusText}>Zapisano</Text>
+        )}
+
+        {tab === 'lista' ? (
           <SectionList
             sections={sections}
-            keyExtractor={(_, index) => index.toString()}
-           renderItem={({ item }) => {
-  const sklepObj = sklepy.find((s) => s.name === item.sklep);
-  const kolor = sklepObj?.color || "#2E9B57";
-
-  return  (
-    <Swipeable
-  renderRightActions={() => (
-    <Pressable
-      onPress={() => usunProdukt(item, item.sklep)}
-      style={styles.deleteSwipe}
-    >
-     <Ionicons name="trash-outline" size={22} color="#C54B3D" />
-    </Pressable>
-  )}
->
-  <View style={[styles.itemBox, item.kupione && styles.itemBoxBought]}>
-<View style={styles.leftSection}>
-  <Pressable onPress={() => toggleKupione(item, item.sklep)}>
-    <View
-      style={[
-        styles.checkbox,
-        item.kupione && styles.checkboxActive,
-      ]}
-    />
-  </Pressable>
-
-  <View style={{ marginLeft: 10 }}>
-    <Text
-      style={[
-        styles.itemText,
-        item.kupione && styles.boughtText,
-      ]}
-    >
-      {item.nazwa}
-    </Text>
-
- {!!item.kategoria && (
-  <Text style={styles.meta}>
-    <Text style={{ color: "#2E9B57" }}>• </Text>
-    {item.kategoria.toLowerCase()}
-  </Text>
-)}
-  </View>
-</View>
-
-    <View style={styles.rightSectionRow}>
-      <Pressable
-  onPress={() => zwiekszIlosc(item, item.sklep)}
-  onLongPress={() => zmniejszIlosc(item, item.sklep)}
->
-  <Text style={styles.quantitySmall}>
-    {item.ilosc} {item.jednostka === "kg" ? "g" : "szt."}
-  </Text>
-</Pressable>
-
-      <View
-  style={[
-    styles.shopBadge,
-    {
-      borderColor: kolor,
-      backgroundColor: `${kolor}20`,
-    },
-  ]}
->
-        <Text style={[styles.shopBadgeText, { color: kolor }]}>
-          {item.sklep[0]}
-        </Text>
-      </View>
-    </View>
-  </View>
-  </Swipeable>
-          );
-}}
-         renderSectionHeader={({ section }) => {
-  const expanded = expandedSections[section.title];
-
-  return (
-    <Pressable
-      onPress={() =>
-        setExpandedSections((prev) => ({
-          ...prev,
-          [section.title]: !prev[section.title],
-        }))
-      }
-      style={styles.sectionHeader}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <Text
-          style={[
-            styles.section,
-            section.title === "Kupione" &&
-              styles.sectionBought,
-          ]}
-        >
-          {section.title.toUpperCase()}
-        </Text>
-
-        <Ionicons
-          name={
-            expanded
-              ? "chevron-down"
-              : "chevron-forward"
-          }
-          size={18}
-          color={
-            section.title === "Kupione"
-              ? "#6A746C"
-              : "#2E9B57"
-          }
-        />
-      </View>
-    </Pressable>
-  );
-}}
-            ListEmptyComponent={<Text style={styles.empty}>Brak produktów</Text>}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={renderProductItem}
+            renderSectionHeader={renderSectionHeader}
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            removeClippedSubviews
+            updateCellsBatchingPeriod={50}
+            windowSize={7}
+            ListEmptyComponent={
+              <Text style={styles.empty}>Brak produktów</Text>
+            }
           />
         ) : (
-  <View>
-
-    {filteredDane.length === 0 ? (
-      <Text style={styles.empty}>
-        {isSearching ? "Brak wynikĂłw" : "Brak produktĂłw"}
-      </Text>
-    ) : filteredDane.map((sekcja) => {
-      const sklepObj = sklepy.find((s) => s.name === sekcja.title);
-      const kolor = sklepObj?.color || "#2E9B57";
-
-      const produktyKupione = sekcja.data.filter((p) => p.kupione);
-
-      const produktyByCategory = sekcja.data
-        .filter((p) => !p.kupione)
-        .reduce((acc: any, produkt) => {
-          const key = produkt.kategoria || "Inne";
-
-          if (!acc[key]) {
-            acc[key] = [];
-          }
-
-          acc[key].push(produkt);
-
-          return acc;
-        }, {});
-
-      const isExpanded = expandedShop === sekcja.title;
-      const showShopContent = isSearching || isExpanded;
-
-      return (
-        <View key={sekcja.title}>
-
-          {/* SHOP HEADER */}
-          <Pressable
-            style={styles.shopHeader}
-            onPress={() =>
-              setExpandedShop(
-                isExpanded ? null : sekcja.title
-              )
-            }
+          // Ten widok ma własne przewijanie, żeby wyszukiwarka i przełącznik zakładek zostały zawsze pod ręką.
+          <ScrollView
+            contentContainerStyle={styles.shopListContent}
+            showsVerticalScrollIndicator={false}
           >
-            <View
-              style={[
-                styles.shopCircleBig,
-                {
-                  borderColor: kolor,
-                  backgroundColor: `${kolor}20`,
-                },
-              ]}
-            >
-              <Text style={[styles.shopCircleText, { color: kolor }]}>
-                {sekcja.title[0]}
+            {filteredDane.length === 0 ? (
+              <Text style={styles.empty}>
+                {isSearching ? 'Brak wyników' : 'Brak produktów'}
               </Text>
-            </View>
+            ) : (
+              shopSections.map((sekcja) => {
+                const isExpanded = expandedShop === sekcja.title;
+                const showShopContent = isSearching || isExpanded;
 
-            <Text style={styles.shopTitle}>
-              {sekcja.title}
-            </Text>
-          </Pressable>
-
-          {/* CONTENT */}
-          {showShopContent && (
-            <View>
-
-              {Object.entries(produktyByCategory).map(
-  ([kategoria, produkty]: any) => {
-    const categoryKey = `${sekcja.title}-${kategoria}`;
-
-    const expanded =
-      isSearching || expandedCategory === categoryKey;
-
-    const CategoryIcon = categoryIcons[kategoria] || Tag;
-
-    return (
-                    <View key={categoryKey}>
-
-                      {/* CATEGORY HEADER */}
+                return (
+                  <View key={sekcja.title}>
+                    {/* SHOP HEADER */}
                     <Pressable
-  style={[
-    styles.categoryHeader,
-    expanded && styles.categoryHeaderActive,
-  ]}
-  onPress={() =>
-    setExpandedCategory(expanded ? null : categoryKey)
-  }
->
-                       <>
- 
+                      style={styles.shopHeader}
+                      onPress={() =>
+                        setExpandedShop(isExpanded ? null : sekcja.title)
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.shopCircleBig,
+                          {
+                            borderColor: sekcja.color,
+                            backgroundColor: `${sekcja.color}20`,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.shopCircleText,
+                            { color: sekcja.color },
+                          ]}
+                        >
+                          {sekcja.title[0]}
+                        </Text>
+                      </View>
 
-<View style={styles.categoryLeft}>
-  <CategoryIcon
-    size={18}
-    color="#2E9B57"
-    strokeWidth={2}
-  />
+                      <Text style={styles.shopTitle}>{sekcja.title}</Text>
+                    </Pressable>
 
-  <Text style={styles.categoryTitle}>
-    {kategoria}
-  </Text>
-</View>
+                    {/* CONTENT */}
+                    {showShopContent && (
+                      <View>
+                        {Object.entries(sekcja.productsByCategory).map(
+                          ([kategoria, produkty]) => {
+                            const categoryKey = `${sekcja.title}-${kategoria}`;
 
-  <Ionicons
-    name={expanded ? "chevron-down" : "chevron-forward"}
-    size={18}
-    color="#2E9B57"
-  />
-</>
-                      </Pressable>
+                            const expanded =
+                              isSearching || expandedCategory === categoryKey;
 
-                      {/* PRODUCTS */}
-                      {expanded &&
-                        produkty.map((item: any) => (
-                          <Swipeable
-                            key={item.id}
-                            renderRightActions={() => (
-                              <Pressable
-                                onPress={() =>
-                                  usunProdukt(item, sekcja.title)
-                                }
-                                style={styles.deleteSwipe}
-                              >
-                                <Ionicons
-                                  name="trash-outline"
-                                  size={22}
-                                  color="#C54B3D"
-                                />
-                              </Pressable>
-                            )}
-                          >
-                            <View
-                              style={[
-                                styles.itemBox,
-                                item.kupione &&
-                                  styles.itemBoxBought,
-                              ]}
-                            >
-                              <View style={styles.leftSection}>
+                            const CategoryIcon =
+                              CATEGORY_ICONS[kategoria] || Tag;
+
+                            return (
+                              <View key={categoryKey}>
+                                {/* CATEGORY HEADER */}
                                 <Pressable
+                                  style={[
+                                    styles.categoryHeader,
+                                    expanded && styles.categoryHeaderActive,
+                                  ]}
                                   onPress={() =>
-                                    toggleKupione(
-                                      item,
-                                      sekcja.title
+                                    setExpandedCategory(
+                                      expanded ? null : categoryKey,
                                     )
                                   }
                                 >
-                                  <View
-                                    style={[
-                                      styles.checkbox,
-                                      item.kupione &&
-                                        styles.checkboxActive,
-                                    ]}
-                                  />
+                                  <>
+                                    <View style={styles.categoryLeft}>
+                                      <CategoryIcon
+                                        size={18}
+                                        color={colors.primary}
+                                        strokeWidth={2}
+                                      />
+
+                                      <Text style={styles.categoryTitle}>
+                                        {kategoria}
+                                      </Text>
+                                    </View>
+
+                                    <Ionicons
+                                      name={
+                                        expanded
+                                          ? 'chevron-down'
+                                          : 'chevron-forward'
+                                      }
+                                      size={18}
+                                      color={colors.primary}
+                                    />
+                                  </>
                                 </Pressable>
 
-                                <View style={{ marginLeft: 10 }}>
-                                  <Text
-                                    style={[
-                                      styles.itemText,
-                                      item.kupione &&
-                                        styles.boughtText,
-                                    ]}
-                                  >
-                                    {item.nazwa}
-                                  </Text>
-
-                                  
-                                </View>
+                                {/* PRODUCTS */}
+                                {expanded &&
+                                  produkty.map((item: Produkt) => (
+                                    <ProductRow
+                                      key={item.id}
+                                      item={item}
+                                      sklep={sekcja.title}
+                                      onToggle={handleToggleProduct}
+                                      onDelete={handleDeleteProduct}
+                                      onIncrease={handleIncreaseProduct}
+                                      onDecrease={handleDecreaseProduct}
+                                      onOpen={openProductDetails}
+                                    />
+                                  ))}
                               </View>
+                            );
+                          },
+                        )}
 
-                             <Pressable
-  onPress={() => zwiekszIlosc(item, sekcja.title)}
-  onLongPress={() => zmniejszIlosc(item, sekcja.title)}
->
-  <Text style={styles.quantitySmall}>
-    {item.ilosc} {item.jednostka === "kg" ? "g" : "szt."}
-  </Text>
-</Pressable>
-                            </View>
-                          </Swipeable>
-                        ))}
-                    </View>
-                  );
-                }
-              )}
+                        {/* KUPIONE */}
+                        {sekcja.boughtProducts.length > 0 && (
+                          <View>
+                            <Text style={styles.kupioneHeader}>✓ Kupione</Text>
 
-              {/* KUPIONE */}
-              {produktyKupione.length > 0 && (
-                <View>
-                  <Text style={styles.kupioneHeader}>
-                    ✓ Kupione
-                  </Text>
-
-                  {produktyKupione.map((item) => (
-                   <Pressable
-  key={item.id}
-  onPress={() => toggleKupione(item, sekcja.title)}
->
-  <View
-    style={[
-      styles.itemBox,
-      styles.itemBoxBought,
-    ]}
-  >
-                      <View style={styles.leftSection}>
-                        <View
-                          style={[
-                            styles.checkbox,
-                            styles.checkboxActive,
-                          ]}
-                        />
-
-                        <View style={{ marginLeft: 10 }}>
-                          <Text style={styles.boughtText}>
-                            {item.nazwa}
-                          </Text>
-                        </View>
+                            {sekcja.boughtProducts.map((item) => (
+                              <ProductRow
+                                key={item.id}
+                                item={item}
+                                sklep={sekcja.title}
+                                showQuantity={false}
+                                onToggle={handleToggleProduct}
+                                onOpen={openProductDetails}
+                              />
+                            ))}
+                          </View>
+                        )}
                       </View>
-                    </View>
-                    </Pressable>
-                  ))}
-                </View>
-                
-              )}
-
-            </View>
-          )}
-
-        </View>
-      );
-    })}
-
-  </View>
-
-  )}    
+                    )}
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -575,362 +450,413 @@ const filteredDane = React.useMemo(() => {
 
 const styles = StyleSheet.create({
   addButton: {
-    alignSelf: "center",
-    backgroundColor: "#2ecc71",
+    alignSelf: 'center',
+    backgroundColor: colors.success,
     width: 50,
     height: 50,
     borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 15,
   },
   actions: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
   },
   addButtonText: {
-    color: "white",
+    color: 'white',
     fontSize: 28,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#F7F8F7"
+    backgroundColor: colors.background,
   },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
-section: {
-  fontSize: 16,
-  fontWeight: "800",
-  marginTop: 20,
-  color: "#2E9B57",
-  letterSpacing: 0.8,
-},
-meta: {
-  fontSize: 12,
-  color: "#6A746C",
-  marginTop: 2,
-},
+  section: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 20,
+    color: colors.primary,
+    letterSpacing: 0.8,
+  },
+  meta: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
   item: {
     fontSize: 16,
     padding: 12,
 
     marginTop: 6,
     borderRadius: 8,
-    shadowColor: "#000",
+    shadowColor: colors.shadow,
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
   },
   kupione: {
-    textDecorationLine: "line-through",
-    color: "#2ecc71",
+    textDecorationLine: 'line-through',
+    color: colors.success,
   },
   rightSide: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   deleteButton: {
     marginLeft: 8,
   },
   empty: {
-    textAlign: "center",
+    textAlign: 'center',
     marginTop: 30,
     fontSize: 16,
-    color: Colors.light.textSecondary,
+    color: colors.textMuted,
   },
-itemBox: {
-  backgroundColor: "#fff",
-  borderRadius: 16,
-  padding: 14,
-  marginBottom: 12,
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  elevation: 2,
-  shadowColor: "#000",
-  shadowOpacity: 0.04,
-  shadowRadius: 8,
-},
+  statusText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  statusError: {
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
+    borderRadius: radius.medium,
+    borderWidth: 1,
+    marginBottom: 8,
+    padding: 10,
+  },
+  statusErrorText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  statusActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  retryButton: {
+    backgroundColor: colors.danger,
+    borderRadius: radius.medium,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  retryButtonText: {
+    color: colors.card,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  dismissErrorText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  itemBox: {
+    backgroundColor: colors.card,
+    borderRadius: radius.large,
+    padding: 14,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    elevation: 2,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+  },
 
-leftSection: {
-  flexDirection: "row",
-  alignItems: "center",
-  flex: 1,
-},
+  leftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
 
-rightSectionRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 12,
-},
+  rightSectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
 
-checkbox: {
-  width: 22,
-  height: 22,
-  borderRadius: 6,
-  borderWidth: 2,
-  borderColor: "#2E9B57",
-  marginRight: 12,
-},
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    marginRight: 12,
+  },
 
-checkboxActive: {
-  backgroundColor: "#2E9B57",
-},
+  checkboxActive: {
+    backgroundColor: colors.primary,
+  },
 
-itemText: {
-  fontSize: 16,
-  fontWeight: "700",
-  color: "#162018",
-},
+  itemText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
 
-quantitySmall: {
-  fontSize: 13,
-  color: "#6A746C",
-  fontWeight: "500",
-},
+  quantitySmall: {
+    fontSize: 13,
+    color: colors.textMuted,
+    fontWeight: '500',
+  },
 
-shopBadge: {
-  width: 32,
-  height: 32,
-  borderRadius: 16,
-  borderWidth: 1.5,
-  borderColor: "#2E9B57",
-  backgroundColor: "#EAF5EE",
-  justifyContent: "center",
-  alignItems: "center",
-},
+  shopBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.large,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: colors.selected,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 
-shopBadgeText: {
-  color: "#2E9B57",
-  fontWeight: "700",
-  fontSize: 13,
-},
+  shopBadgeText: {
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: 13,
+  },
 
   rightControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
     minWidth: 145,
     gap: 12,
   },
-sectionBought: {
-  color: "#6A746C",
-},
-headerRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 10,
-},
+  sectionBought: {
+    color: colors.textMuted,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
 
-headerIcon: {
-  width: 38,
-  height: 38,
-  borderRadius: 10,
-},
+  headerIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+  },
 
-title: {
-  fontSize: 26,
-  fontWeight: "700",
-  color: "#162018",
-},
-
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: colors.text,
+  },
 
   boughtText: {
     fontSize: 16,
-   fontWeight: "700",
-  color: "#6A746C",
-    textDecorationLine: "line-through",
+    fontWeight: '700',
+    color: colors.textMuted,
+    textDecorationLine: 'line-through',
   },
   itemInfo: {
     flex: 1,
     paddingRight: 8,
   },
   smallButton: {
-    backgroundColor: "#2ecc71",
+    backgroundColor: colors.success,
     padding: 10,
     borderRadius: 8,
-    alignItems: "center",
+    alignItems: 'center',
     marginBottom: 8,
   },
 
   buttonText: {
-    color: "white",
-    fontWeight: "bold",
+    color: 'white',
+    fontWeight: 'bold',
   },
   quantityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     marginRight: 8,
   },
 
   quantityText: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     minWidth: 16,
-    textAlign: "center",
+    textAlign: 'center',
   },
 
   sectionHeader: {
     marginTop: 20,
     marginBottom: 6,
   },
+  sectionHeaderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
 
-sectionSum: {
-  fontSize: 13,
-  color: "#6A746C",
-},
-tabs: {
-  flexDirection: "row",
-  gap: 10,
-  marginBottom: 14,
-},
+  sectionSum: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  tabs: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
 
-searchBox: {
-  backgroundColor: "#fff",
-  borderRadius: 16,
-  borderWidth: 1,
-  borderColor: "#E1E5E2",
-  paddingHorizontal: 14,
-  marginBottom: 14,
-  minHeight: 48,
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 10,
-},
+  searchBox: {
+    backgroundColor: colors.card,
+    borderRadius: radius.large,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
 
-searchInput: {
-  flex: 1,
-  fontSize: 16,
-  fontWeight: "600",
-  color: "#162018",
-  paddingVertical: 10,
-},
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    paddingVertical: 10,
+  },
 
-searchClear: {
-  width: 28,
-  height: 28,
-  alignItems: "center",
-  justifyContent: "center",
-},
+  searchClear: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
-tabButton: {
-  flex: 1,
-  paddingVertical: 10,
-  borderRadius: 16,
-  backgroundColor: "#E6E8E7", 
-  alignItems: "center",
-},
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: radius.large,
+    backgroundColor: colors.tabIdle,
+    alignItems: 'center',
+  },
 
-tabButtonActive: {
-  backgroundColor: "#EAF5EE", 
-  borderWidth: 1.5,
-  borderColor: "#2E9B57",
-},
+  tabButtonActive: {
+    backgroundColor: colors.selected,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
 
-tabText: {
-  fontSize: 14,
-  color: "#6A746C",
-  fontWeight: "600",
-},
+  tabText: {
+    fontSize: 14,
+    color: colors.textMuted,
+    fontWeight: '600',
+  },
 
-tabTextActive: {
-  color: "#2E9B57",
-},
+  tabTextActive: {
+    color: colors.primary,
+  },
 
+  deleteSwipe: {
+    backgroundColor: colors.dangerSoft,
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 70,
+    borderRadius: radius.large,
+    marginBottom: 12,
+  },
+  itemBoxBought: {
+    backgroundColor: colors.muted,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  header: {
+    backgroundColor: colors.header,
+    marginHorizontal: -20,
+    marginTop: -20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 18,
+    marginBottom: 16,
+  },
+  shopHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 10,
+    gap: 10,
+  },
 
-deleteSwipe: {
-  backgroundColor: "#F8ECEA",
-  borderWidth: 1.5,
-  borderColor: "#C54B3D",
-  justifyContent: "center",
-  alignItems: "center",
-  width: 70,
-  borderRadius: 16,
-  marginBottom: 12,
-},
-itemBoxBought: {
-  backgroundColor: "#F1F3F2",
-  borderWidth: 1,
-  borderColor: "#E1E5E2",
-},
-header: {
-  backgroundColor: "#EAF5EE",
-  marginHorizontal: -20,
-  marginTop: -20,
-  paddingHorizontal: 20,
-  paddingTop: 20,
-  paddingBottom: 18,
-  marginBottom: 16,
-},
-shopHeader: {
-  flexDirection: "row",
-  alignItems: "center",
-  marginTop: 20,
-  marginBottom: 10,
-  gap: 10,
-},
+  shopListContent: {
+    paddingBottom: 32,
+  },
 
-shopCircleBig: {
-  width: 36,
-  height: 36,
-  borderRadius: 18,
-  borderWidth: 1.5,
-  justifyContent: "center",
-  alignItems: "center",
-},
+  shopCircleBig: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 
-shopCircleText: {
-  fontWeight: "700",
-},
+  shopCircleText: {
+    fontWeight: '700',
+  },
 
-shopTitle: {
-  fontSize: 22,
-  fontWeight: "800",
-  color: "#162018",
-},
-categoryHeader: {
-  backgroundColor: "#F7F8F7",
-  borderRadius: 16,
-  borderWidth: 1.5,
-  borderColor: "#DCE3DD",
-  paddingVertical: 12,
-  paddingHorizontal: 14,
-  marginBottom: 10,
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-},
+  shopTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  categoryHeader: {
+    backgroundColor: colors.background,
+    borderRadius: radius.large,
+    borderWidth: 1.5,
+    borderColor: colors.borderMuted,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
 
-categoryTitle: {
-  fontSize: 15,
-  fontWeight: "700",
-  color: "#2E9B57",
-},
+  categoryTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
+  },
 
-kupioneHeader: {
-  fontSize: 18,
-  fontWeight: "800",
-  color: "#6A746C",
-  marginTop: 18,
-  marginBottom: 12,
-},
-categoryHeaderActive: {
-  backgroundColor: "#EAF5EE",
-  borderColor: "#2E9B57",
-},
-categoryLeft: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 10,
-},
+  kupioneHeader: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textMuted,
+    marginTop: 18,
+    marginBottom: 12,
+  },
+  categoryHeaderActive: {
+    backgroundColor: colors.selected,
+    borderColor: colors.primary,
+  },
+  categoryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
 });

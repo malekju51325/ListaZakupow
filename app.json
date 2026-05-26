@@ -3,7 +3,7 @@
     "name": "lista-zakupow",
     "slug": "lista-zakupow",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/app-icon.png",
     "scheme": "listazakupow",
     "userInterfaceStyle": "automatic",

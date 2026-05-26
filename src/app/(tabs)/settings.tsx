@@ -1,7 +1,8 @@
-import { useShopping } from "@/context/ShoppingContext";
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import React from "react";
+import { ShoppingTheme } from '@/constants/theme';
+import { useShopping } from '@/context/ShoppingContext';
+import { groupProductsByCategory } from '@/utils/shoppingSelectors';
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
 import {
   Alert,
   Pressable,
@@ -9,19 +10,42 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
-} from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { SafeAreaView } from "react-native-safe-area-context";
+} from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const { colors, radius } = ShoppingTheme;
+const SHOP_COLORS = [
+  colors.primary,
+  colors.info,
+  colors.warning,
+  colors.danger,
+  colors.textMuted,
+];
 
 export default function SettingsScreen() {
-  const { dane, wyczyscListe, usunKupione, sklepy, setSklepy,usunSklep,kategorie,
-  setKategorie, usunKategorie, } = useShopping();
-  const [nowySklep, setNowySklep] = React.useState("");
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+  const {
+    dane,
+    wyczyscListe,
+    usunKupione,
+    sklepy,
+    dodajSklep,
+    usunSklep,
+    kategorie,
+    dodajKategorie,
+    usunKategorie,
+  } = useShopping();
+  const [nowySklep, setNowySklep] = React.useState('');
   const [showAddShop, setShowAddShop] = React.useState(false);
-  const [wybranyKolor, setWybranyKolor] = React.useState("#2E9B57");
-  const [nowaKategoria, setNowaKategoria] = React.useState("");
-const [showAddCategory, setShowAddCategory] = React.useState(false);
+  const [wybranyKolor, setWybranyKolor] = React.useState<string>(
+    colors.primary,
+  );
+  const [nowaKategoria, setNowaKategoria] = React.useState('');
+  const [showAddCategory, setShowAddCategory] = React.useState(false);
 
   const wszystkieProdukty = dane.flatMap((sekcja) =>
     sekcja.data.map((produkt) => ({
@@ -29,420 +53,407 @@ const [showAddCategory, setShowAddCategory] = React.useState(false);
       sklep: sekcja.title,
     })),
   );
-  const COLORS = [
-    "#2E9B57",
-    "#3178C6",
-    "#F3B64B",
-    "#C54B3D",
-    "#6A746C",
-  ];
-
   const kupione = wszystkieProdukty.filter((produkt) => produkt.kupione);
 
   function handleWyczyscListe() {
     if (wszystkieProdukty.length === 0) {
-      Alert.alert("Pusta lista", "Nie ma produktów do usunięcia.");
+      Alert.alert('Pusta lista', 'Nie ma produktów do usunięcia.');
       return;
     }
 
     Alert.alert(
-      "Wyczyść listę",
-      "Czy na pewno chcesz usunąć wszystkie produkty?",
+      'Wyczyść listę',
+      'Czy na pewno chcesz usunąć wszystkie produkty?',
       [
-        { text: "Anuluj", style: "cancel" },
-        { text: "Usuń", style: "destructive", onPress: wyczyscListe },
+        { text: 'Anuluj', style: 'cancel' },
+        { text: 'Usuń', style: 'destructive', onPress: wyczyscListe },
       ],
     );
   }
 
   function handleUsunKupione() {
     if (kupione.length === 0) {
-      Alert.alert("Brak produktów", 'Nie ma produktów w sekcji "Kupione".');
+      Alert.alert('Brak produktów', 'Nie ma produktów w sekcji "Kupione".');
       return;
     }
 
     Alert.alert(
-      "Usuń kupione",
+      'Usuń kupione',
       'Czy chcesz usunąć wszystkie produkty z sekcji "Kupione"?',
       [
-        { text: "Anuluj", style: "cancel" },
-        { text: "Usuń", style: "destructive", onPress: usunKupione },
+        { text: 'Anuluj', style: 'cancel' },
+        { text: 'Usuń', style: 'destructive', onPress: usunKupione },
       ],
     );
   }
 
   async function handleDodajSklep() {
     if (!nowySklep.trim()) {
-      alert("Podaj nazwę sklepu");
+      alert('Podaj nazwę sklepu');
       return;
     }
 
     const istnieje = sklepy.find(
-      (s) => s.name.toLowerCase() === nowySklep.toLowerCase()
+      (s) => s.name.toLowerCase() === nowySklep.toLowerCase(),
     );
 
     if (istnieje) {
-      alert("Taki sklep już istnieje");
+      alert('Taki sklep już istnieje');
       return;
     }
 
-const nowe = [
-  ...sklepy,
-  {
-    name: nowySklep.trim(),
-    color: wybranyKolor,
-  },
-];
+    await dodajSklep(nowySklep.trim(), wybranyKolor);
 
-setSklepy(nowe);
-await AsyncStorage.setItem('sklepy', JSON.stringify(nowe));
-
-    setNowySklep("");
+    setNowySklep('');
   }
 
   async function handleDodajKategorie() {
-  if (!nowaKategoria.trim()) {
-    alert("Podaj nazwę kategorii");
-    return;
-  }
+    if (!nowaKategoria.trim()) {
+      alert('Podaj nazwę kategorii');
+      return;
+    }
 
-  const istnieje = kategorie.find(
-    (k) => k.toLowerCase() === nowaKategoria.toLowerCase()
-  );
-
-  if (istnieje) {
-    alert("Taka kategoria już istnieje");
-    return;
-  }
-
-  const nowe = [...kategorie, nowaKategoria.trim()];
-
-setKategorie(nowe);
-await AsyncStorage.setItem('kategorie', JSON.stringify(nowe));
-  setNowaKategoria("");
-}
-
-function handleUsunKategorie(kategoria: string) {
-  const produktyWKategorii = wszystkieProdukty.filter(
-    (produkt) => produkt.kategoria === kategoria
-  ).length;
-
-  const message =
-    produktyWKategorii > 0
-      ? `Ta kategoria jest używana przez ${produktyWKategorii} produktów. Po usunięciu trafią do "Inne".`
-      : "Czy na pewno chcesz usunąć tę kategorię?";
-
-  Alert.alert("Usuń kategorię", message, [
-    { text: "Anuluj", style: "cancel" },
-    {
-      text: "Usuń",
-      style: "destructive",
-      onPress: () => usunKategorie(kategoria),
-    },
-  ]);
-}
-
-function handleUsunSklep(sklep: string) {
-  const sekcjaSklepu = dane.find((sekcja) => sekcja.title === sklep);
-  const liczbaProduktow = sekcjaSklepu?.data.length ?? 0;
-
-  if (liczbaProduktow > 0) {
-    Alert.alert(
-      "Nie można usunąć sklepu",
-      `Sklep "${sklep}" ma ${liczbaProduktow} produktów. Usuń je z listy przed usunięciem sklepu.`
+    const istnieje = kategorie.find(
+      (k) => k.toLowerCase() === nowaKategoria.toLowerCase(),
     );
-    return;
+
+    if (istnieje) {
+      alert('Taka kategoria już istnieje');
+      return;
+    }
+
+    await dodajKategorie(nowaKategoria.trim());
+    setNowaKategoria('');
   }
 
-  Alert.alert("Usuń sklep", `Czy na pewno chcesz usunąć sklep "${sklep}"?`, [
-    { text: "Anuluj", style: "cancel" },
-    {
-      text: "Usuń",
-      style: "destructive",
-      onPress: () => usunSklep(sklep),
-    },
-  ]);
-}
+  function handleUsunKategorie(kategoria: string) {
+    const produktyWKategorii = wszystkieProdukty.filter(
+      (produkt) => produkt.kategoria === kategoria,
+    ).length;
 
- async function handleUdostepnij() {
-  if (wszystkieProdukty.length === 0) {
-    Alert.alert("Pusta lista", "Nie ma produktów do udostępnienia.");
-    return;
+    const message =
+      produktyWKategorii > 0
+        ? `Ta kategoria jest używana przez ${produktyWKategorii} produktów. Po usunięciu trafią do "Inne".`
+        : 'Czy na pewno chcesz usunąć tę kategorię?';
+
+    Alert.alert('Usuń kategorię', message, [
+      { text: 'Anuluj', style: 'cancel' },
+      {
+        text: 'Usuń',
+        style: 'destructive',
+        onPress: () => usunKategorie(kategoria),
+      },
+    ]);
   }
 
-  let tekst = "LISTA ZAKUPÓW\n\n";
+  function handleUsunSklep(sklep: string) {
+    const sekcjaSklepu = dane.find((sekcja) => sekcja.title === sklep);
+    const liczbaProduktow = sekcjaSklepu?.data.length ?? 0;
 
-  dane.forEach((sekcja) => {
-    if (sekcja.data.length === 0) return;
+    if (liczbaProduktow > 0) {
+      Alert.alert(
+        'Nie można usunąć sklepu',
+        `Sklep "${sklep}" ma ${liczbaProduktow} produktów. Usuń je z listy przed usunięciem sklepu.`,
+      );
+      return;
+    }
 
-    tekst += `${sekcja.title.toUpperCase()}\n\n`;
+    Alert.alert('Usuń sklep', `Czy na pewno chcesz usunąć sklep "${sklep}"?`, [
+      { text: 'Anuluj', style: 'cancel' },
+      {
+        text: 'Usuń',
+        style: 'destructive',
+        onPress: () => usunSklep(sklep),
+      },
+    ]);
+  }
 
-    const produktyByCategory = sekcja.data
-      .filter((p) => !p.kupione)
-      .reduce((acc: any, produkt) => {
-        const key = produkt.kategoria || "Inne";
+  async function handleUdostepnij() {
+    if (wszystkieProdukty.length === 0) {
+      Alert.alert('Pusta lista', 'Nie ma produktów do udostępnienia.');
+      return;
+    }
 
-        if (!acc[key]) {
-          acc[key] = [];
-        }
+    let tekst = 'LISTA ZAKUPÓW\n\n';
 
-        acc[key].push(produkt);
+    dane.forEach((sekcja) => {
+      if (sekcja.data.length === 0) return;
 
-        return acc;
-      }, {});
+      tekst += `${sekcja.title.toUpperCase()}\n\n`;
 
-    Object.entries(produktyByCategory).forEach(
-      ([kategoria, produkty]: any) => {
+      const produktyByCategory = groupProductsByCategory(sekcja.data);
+
+      Object.entries(produktyByCategory).forEach(([kategoria, produkty]) => {
         tekst += `• ${kategoria}\n`;
 
-        produkty.forEach((produkt: any) => {
+        produkty.forEach((produkt) => {
           const jednostka =
-            produkt.jednostka === "kg"
+            produkt.jednostka === 'kg'
               ? `${produkt.ilosc} g`
-              : `${produkt.ilosc} szt.`;
+              : produkt.jednostka === 'op.'
+                ? `${produkt.ilosc} op.`
+                : `${produkt.ilosc} szt.`;
 
           tekst += `   - ${produkt.nazwa} (${jednostka})\n`;
         });
 
-        tekst += "\n";
-      }
-    );
-  });
-
-  try {
-    await Share.share({
-      message: tekst,
+        tekst += '\n';
+      });
     });
-  } catch {
-    Alert.alert("Błąd", "Nie udało się udostępnić listy.");
+
+    try {
+      // Systemowe udostępnianie nie wymaga osobnej integracji z komunikatorami ani uprawnień.
+      await Share.share({
+        message: tekst,
+      });
+    } catch {
+      Alert.alert('Błąd', 'Nie udało się udostępnić listy.');
+    }
   }
-}
 
   return (
-  <SafeAreaView style={styles.safe}>
-<KeyboardAwareScrollView
-  contentContainerStyle={styles.container}
-  enableOnAndroid={true}
-  extraScrollHeight={120}
-  extraHeight={150}
-  keyboardShouldPersistTaps="handled"
-  keyboardOpeningTime={0}
->
-
-    <Text style={styles.title}>Ustawienia</Text>
-
-    {/* AKCJE */}
-    <View style={styles.card}>
-      <Pressable style={styles.button} onPress={handleUdostepnij}>
-        <Text style={styles.buttonText}>Udostępnij listę</Text>
-      </Pressable>
-
-      <Pressable style={styles.button} onPress={handleUsunKupione}>
-        <Text style={styles.buttonText}>Usuń kupione</Text>
-      </Pressable>
-
-      <Pressable
-        style={[styles.button, styles.deleteButton]}
-        onPress={handleWyczyscListe}
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.container}
+        enableOnAndroid={true}
+        extraScrollHeight={120}
+        extraHeight={150}
+        keyboardShouldPersistTaps="handled"
+        keyboardOpeningTime={0}
       >
-        <Text style={[styles.buttonText, styles.deleteButtonText]}>
-          Wyczyść listę
-        </Text>
-      </Pressable>
-    </View>
+        <View
+          style={[
+            styles.content,
+            {
+              maxWidth: isLandscape ? 680 : undefined,
+              alignSelf: 'center',
+              width: '100%',
+            },
+          ]}
+        >
+          <Text style={styles.title}>Ustawienia</Text>
 
-    {/* HEADER SKLEPÓW */}
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>Twoje sklepy</Text>
+          {/* AKCJE */}
+          <View style={styles.card}>
+            <Pressable style={styles.button} onPress={handleUdostepnij}>
+              <Text style={styles.buttonText}>Udostępnij listę</Text>
+            </Pressable>
 
-      <Pressable onPress={() => setShowAddShop(!showAddShop)}>
-        <Text style={styles.plus}>
-          {showAddShop ? "−" : "+"}
-        </Text>
-      </Pressable>
-    </View>
+            <Pressable style={styles.button} onPress={handleUsunKupione}>
+              <Text style={styles.buttonText}>Usuń kupione</Text>
+            </Pressable>
 
-    {/* LISTA SKLEPÓW */}
-    <View style={styles.card}>
-      {sklepy.map((s) => (
-        <View key={s.name} style={styles.shopRow}>
-          <View
-            style={[
-              styles.shopCircle,
-              {
-                backgroundColor: `${s.color}20`,
-                borderColor: s.color,
-              },
-            ]}
-          >
-            <Text style={[styles.shopLetter, { color: s.color }]}>
-              {s.name[0]}
-            </Text>
+            <Pressable
+              style={[styles.button, styles.deleteButton]}
+              onPress={handleWyczyscListe}
+            >
+              <Text style={[styles.buttonText, styles.deleteButtonText]}>
+                Wyczyść listę
+              </Text>
+            </Pressable>
           </View>
 
-          <Text style={styles.shopName}>{s.name}</Text>
+          {/* HEADER SKLEPÓW */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Twoje sklepy</Text>
 
-          <Pressable
-            onPress={() => handleUsunSklep(s.name)}
-            style={styles.shopDeleteButton}
-          >
-            <Ionicons name="trash-outline" size={16} color="#C54B3D" />
-          </Pressable>
+            <Pressable onPress={() => setShowAddShop(!showAddShop)}>
+              <Text style={styles.plus}>{showAddShop ? '−' : '+'}</Text>
+            </Pressable>
+          </View>
+
+          {/* LISTA SKLEPÓW */}
+          <View style={styles.card}>
+            {sklepy.map((s) => (
+              <View key={s.name} style={styles.shopRow}>
+                <View
+                  style={[
+                    styles.shopCircle,
+                    {
+                      backgroundColor: `${s.color}20`,
+                      borderColor: s.color,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.shopLetter, { color: s.color }]}>
+                    {s.name[0]}
+                  </Text>
+                </View>
+
+                <Text style={styles.shopName}>{s.name}</Text>
+
+                <Pressable
+                  onPress={() => handleUsunSklep(s.name)}
+                  style={styles.shopDeleteButton}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={16}
+                    color={colors.danger}
+                  />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+
+          {/* FORMULARZ – POJAWIA SIĘ PO KLIKNIĘCIU */}
+          {showAddShop && (
+            <View style={styles.card}>
+              <Text style={styles.label}>Nazwa sklepu</Text>
+              <TextInput
+                value={nowySklep}
+                onChangeText={setNowySklep}
+                style={styles.input}
+              />
+
+              <Text style={styles.label}>Kolor</Text>
+              <View style={styles.colorsRow}>
+                {SHOP_COLORS.map((c) => (
+                  <Pressable
+                    key={c}
+                    onPress={() => setWybranyKolor(c)}
+                    style={[
+                      styles.colorCircle,
+                      {
+                        backgroundColor: `${c}20`,
+                        borderColor: c,
+                        borderWidth: wybranyKolor === c ? 2 : 1,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+
+              <Pressable style={styles.addButton} onPress={handleDodajSklep}>
+                <Text style={styles.addButtonText}>Dodaj sklep</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* HEADER KATEGORII */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Kategorie</Text>
+
+            <Pressable onPress={() => setShowAddCategory(!showAddCategory)}>
+              <Text style={styles.plus}>{showAddCategory ? '−' : '+'}</Text>
+            </Pressable>
+          </View>
+
+          {/* LISTA KATEGORII */}
+          <View style={styles.card}>
+            <View style={styles.chipsContainer}>
+              {kategorie.map((k) => (
+                <View key={k} style={styles.categoryChip}>
+                  <Text style={styles.categoryChipText}>{k}</Text>
+                  <Pressable
+                    onPress={() => handleUsunKategorie(k)}
+                    style={styles.categoryDeleteButton}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={14}
+                      color={colors.danger}
+                    />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* FORMULARZ KATEGORII */}
+          {showAddCategory && (
+            <View style={styles.card}>
+              <Text style={styles.label}>Nazwa kategorii</Text>
+
+              <TextInput
+                value={nowaKategoria}
+                onChangeText={setNowaKategoria}
+                style={styles.input}
+              />
+
+              <Pressable
+                style={styles.addButton}
+                onPress={handleDodajKategorie}
+              >
+                <Text style={styles.addButtonText}>Dodaj kategorię</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
-      ))}
-    </View>
-
-    {/* FORMULARZ – POJAWIA SIĘ PO KLIKNIĘCIU */}
-    {showAddShop && (
-      <View style={styles.card}>
-
-        <Text style={styles.label}>Nazwa sklepu</Text>
-        <TextInput
-          value={nowySklep}
-          onChangeText={setNowySklep}
-          style={styles.input}
-        />
-
-        <Text style={styles.label}>Kolor</Text>
-        <View style={styles.colorsRow}>
-          {COLORS.map((c) => (
-            <Pressable
-              key={c}
-              onPress={() => setWybranyKolor(c)}
-              style={[
-                styles.colorCircle,
-                {
-                  backgroundColor: `${c}20`,
-                  borderColor: c,
-                  borderWidth: wybranyKolor === c ? 2 : 1,
-                },
-              ]}
-            />
-          ))}
-        </View>
-
-        <Pressable style={styles.addButton} onPress={handleDodajSklep}>
-          <Text style={styles.addButtonText}>Dodaj sklep</Text>
-        </Pressable>
-
-      </View>
-    )}
-
-    {/* HEADER KATEGORII */}
-<View style={styles.sectionHeader}>
-  <Text style={styles.sectionTitle}>Kategorie</Text>
-
-  <Pressable onPress={() => setShowAddCategory(!showAddCategory)}>
-    <Text style={styles.plus}>
-      {showAddCategory ? "−" : "+"}
-    </Text>
-  </Pressable>
-</View>
-
-{/* LISTA KATEGORII */}
-<View style={styles.card}>
-  <View style={styles.chipsContainer}>
-    {kategorie.map((k) => (
-      <View key={k} style={styles.categoryChip}>
-        <Text style={styles.categoryChipText}>{k}</Text>
-        <Pressable
-          onPress={() => handleUsunKategorie(k)}
-          style={styles.categoryDeleteButton}
-        >
-          <Ionicons name="trash-outline" size={14} color="#C54B3D" />
-        </Pressable>
-      </View>
-    ))}
-  </View>
-</View>
-
-{/* FORMULARZ KATEGORII */}
-{showAddCategory && (
-  <View style={styles.card}>
-    <Text style={styles.label}>Nazwa kategorii</Text>
-
-    <TextInput
-      value={nowaKategoria}
-      onChangeText={setNowaKategoria}
-      style={styles.input}
-    />
-
-    <Pressable style={styles.addButton} onPress={handleDodajKategorie}>
-      <Text style={styles.addButtonText}>Dodaj kategorię</Text>
-    </Pressable>
-  </View>
-)}
-<View style={{ height: 120 }} />
-     </KeyboardAwareScrollView>
-</SafeAreaView>
+      </KeyboardAwareScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#F7F8F7",
+    backgroundColor: colors.background,
   },
 
   container: {
     flexGrow: 1,
     padding: 20,
-    paddingBottom: 200,
+    paddingBottom: 96,
+  },
+
+  content: {
+    flex: 1,
   },
 
   title: {
     fontSize: 26,
-    fontWeight: "700",
-    color: "#162018",
+    fontWeight: '700',
+    color: colors.text,
     marginBottom: 20,
   },
 
   sectionTitle: {
     fontSize: 14,
-    color: "#6A746C",
+    color: colors.textMuted,
     marginBottom: 10,
     marginTop: 10,
   },
 
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
     padding: 16,
     marginBottom: 20,
     elevation: 3,
-    shadowColor: "#000",
+    shadowColor: colors.shadow,
     shadowOpacity: 0.05,
     shadowRadius: 10,
   },
 
   button: {
-    backgroundColor: "#EAF5EE",
+    backgroundColor: colors.selected,
     borderWidth: 1.5,
-    borderColor: "#2E9B57",
+    borderColor: colors.primary,
     padding: 16,
     borderRadius: 18,
     marginBottom: 12,
-    alignItems: "center",
+    alignItems: 'center',
   },
 
   deleteButton: {
-    backgroundColor: "#F8ECEA",
-    borderColor: "#C54B3D",
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
 
   buttonText: {
-    color: "#2E9B57",
-    fontWeight: "700",
+    color: colors.primary,
+    fontWeight: '700',
     fontSize: 16,
   },
 
   deleteButtonText: {
-    color: "#C54B3D",
+    color: colors.danger,
   },
 
   shopRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
   },
 
@@ -451,20 +462,20 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1.5,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 10,
   },
 
   shopLetter: {
-    fontWeight: "600",
-    color: "#162018",
+    fontWeight: '600',
+    color: colors.text,
   },
 
   shopName: {
     fontSize: 16,
-    color: "#162018",
-    fontWeight: "500",
+    color: colors.text,
+    fontWeight: '500',
     flex: 1,
   },
 
@@ -472,26 +483,26 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#F8ECEA",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: colors.dangerSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   addButton: {
-    backgroundColor: "#2E9B57",
+    backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 16,
-    alignItems: "center",
+    alignItems: 'center',
   },
 
   addButtonText: {
-    color: "#fff",
-    fontWeight: "600",
+    color: colors.card,
+    fontWeight: '600',
     fontSize: 16,
   },
   input: {
-    backgroundColor: "#F7F8F7",
-    borderRadius: 14,
+    backgroundColor: colors.input,
+    borderRadius: radius.medium,
     padding: 14,
     marginBottom: 12,
     fontSize: 16,
@@ -499,12 +510,12 @@ const styles = StyleSheet.create({
 
   label: {
     fontSize: 13,
-    color: "#6A746C",
+    color: colors.textMuted,
     marginBottom: 6,
   },
 
   colorsRow: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 10,
     marginBottom: 16,
   },
@@ -515,49 +526,49 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   sectionHeader: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 10,
-  marginTop: 10,
-},
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    marginTop: 10,
+  },
 
-plus: {
-  fontSize: 22,
-  fontWeight: "600",
-  color: "#2E9B57",
-  paddingHorizontal: 10,
-},
-chipsContainer: {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  gap: 8,
-},
+  plus: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: colors.primary,
+    paddingHorizontal: 10,
+  },
+  chipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
 
-categoryChip: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 8,
-  paddingVertical: 8,
-  paddingHorizontal: 14,
-  borderRadius: 20,
-  backgroundColor: "#EAF5EE",
-  borderWidth: 1.5,
-  borderColor: "#2E9B57",
-},
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: colors.selected,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
 
-categoryChipText: {
-  fontSize: 14,
-  fontWeight: "600",
-  color: "#2E9B57",
-},
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
 
-categoryDeleteButton: {
-  width: 22,
-  height: 22,
-  borderRadius: 11,
-  backgroundColor: "#F8ECEA",
-  alignItems: "center",
-  justifyContent: "center",
-},
+  categoryDeleteButton: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.dangerSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

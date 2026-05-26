@@ -1,12 +1,12 @@
-import { SymbolView } from "expo-symbols";
-import { PropsWithChildren, useState } from "react";
-import { Pressable, StyleSheet } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import { SymbolView } from 'expo-symbols';
+import { PropsWithChildren, useState } from 'react';
+import { Pressable, StyleSheet } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { Spacing } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 export function Collapsible({
   children,
@@ -27,14 +27,14 @@ export function Collapsible({
         <ThemedView type="backgroundElement" style={styles.button}>
           <SymbolView
             name={{
-              ios: "chevron.right",
-              android: "chevron_right",
-              web: "chevron_right",
+              ios: 'chevron.right',
+              android: 'chevron_right',
+              web: 'chevron_right',
             }}
             size={14}
             weight="bold"
             tintColor={theme.text}
-            style={{ transform: [{ rotate: isOpen ? "-90deg" : "90deg" }] }}
+            style={{ transform: [{ rotate: isOpen ? '-90deg' : '90deg' }] }}
           />
         </ThemedView>
 
@@ -53,8 +53,8 @@ export function Collapsible({
 
 const styles = StyleSheet.create({
   heading: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.two,
   },
   pressedHeading: {
@@ -64,8 +64,8 @@ const styles = StyleSheet.create({
     width: Spacing.four,
     height: Spacing.four,
     borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     marginTop: Spacing.three,

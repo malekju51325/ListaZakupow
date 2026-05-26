@@ -1,18 +1,28 @@
-import { Stack } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { ShoppingProvider } from "../context/ShoppingContext";
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { Stack } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ShoppingProvider } from '../context/ShoppingContext';
 
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-  <SafeAreaProvider>
-    <ShoppingProvider>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-    </ShoppingProvider>
-  </SafeAreaProvider>
-</GestureHandlerRootView>
+      <SafeAreaProvider>
+        <ErrorBoundary>
+          <ShoppingProvider>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="product-details"
+                options={{
+                  presentation: 'modal',
+                  title: 'Szczegóły produktu',
+                }}
+              />
+            </Stack>
+          </ShoppingProvider>
+        </ErrorBoundary>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
