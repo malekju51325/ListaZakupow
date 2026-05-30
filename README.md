@@ -199,6 +199,50 @@ Można też od razu uruchomić Androida:
 npm run android
 ```
 
+## Deployment i build
+
+Aplikacja ma konfigurację do EAS Build.
+
+W `app.json` ustawione są:
+
+- nazwa aplikacji: `Lista zakupów`,
+- slug: `lista-zakupow`,
+- własna ikona aplikacji: `assets/images/app-icon.png`,
+- splash screen z własną ikoną,
+- pakiet Androida: `com.justynamalek.listazakupow`.
+
+Plik `eas.json` ma profil `preview`, który buduje plik `.apk` dla Androida.
+
+### Pierwsza konfiguracja EAS
+
+1. Załóż konto na `https://expo.dev`.
+
+2. Zaloguj się w terminalu:
+
+   ```bash
+   npx eas login
+   ```
+
+3. Jeśli EAS zapyta o połączenie projektu z Expo, wybierz istniejącą aplikację `lista-zakupow` albo utwórz nową.
+
+4. Jeśli EAS zapyta o Android Keystore, wybierz opcję automatycznego wygenerowania przez Expo.
+
+### Build APK
+
+Uruchom:
+
+```bash
+npm run build:android:preview
+```
+
+To uruchamia:
+
+```bash
+eas build --platform android --profile preview
+```
+
+Po zakończeniu builda Expo pokaże link do pobrania pliku `.apk`.
+
 ## Testy i jakość kodu
 
 Uruchom testy:

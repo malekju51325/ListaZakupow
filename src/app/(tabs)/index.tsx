@@ -140,6 +140,7 @@ export default function HomeScreen() {
         pathname: '../product-details',
         // Parametry są proste tekstowo, żeby ekran szczegółów nie musiał znać struktury całej listy.
         params: {
+          id: String(item.id),
           nazwa: item.nazwa,
           sklep,
           ilosc: String(item.ilosc),
@@ -788,7 +789,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.header,
     marginHorizontal: -20,
-    marginTop: -20,
+    marginTop: 0,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 18,

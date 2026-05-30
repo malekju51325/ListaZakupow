@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 120,
   },
 
   content: {
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.header,
     marginHorizontal: -20,
-    marginTop: -20,
+    marginTop: 0,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 18,

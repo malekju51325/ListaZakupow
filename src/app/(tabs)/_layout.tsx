@@ -1,10 +1,14 @@
 import { ShoppingTheme } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { colors } = ShoppingTheme;
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 16);
+
   return (
     <Tabs
       screenOptions={{
@@ -12,11 +16,13 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
-          height: 80,
-          paddingBottom: 10,
+          height: 64 + bottomInset,
+          paddingBottom: bottomInset,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
+          paddingBottom: 2,
         },
       }}
     >

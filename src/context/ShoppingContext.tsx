@@ -30,6 +30,13 @@ type ShoppingContextType = {
   ) => void;
   usunProdukt: (produkt: Produkt, sklep: string) => void;
   toggleKupione: (produkt: Produkt, sklep: string) => void;
+  edytujProdukt: (
+    produktId: number,
+    obecnySklep: string,
+    zmiany: Partial<Pick<Produkt, 'ilosc' | 'kategoria'>> & {
+      sklep?: string;
+    },
+  ) => void;
   zwiekszIlosc: (produkt: Produkt, sklep: string) => void;
   zmniejszIlosc: (produkt: Produkt, sklep: string) => void;
   wyczyscListe: () => void;
@@ -221,6 +228,63 @@ export function ShoppingProvider({ children }: { children: React.ReactNode }) {
     Haptics.selectionAsync();
   }
 
+  function edytujProdukt(
+    produktId: number,
+    obecnySklep: string,
+    zmiany: Partial<Pick<Produkt, 'ilosc' | 'kategoria'>> & {
+      sklep?: string;
+    },
+  ) {
+    let przenoszonyProdukt: Produkt | null = null;
+    const docelowySklep = zmiany.sklep ?? obecnySklep;
+
+    const daneBezProduktu = dane
+      .map((sekcja) => {
+        const produkt = sekcja.data.find((p) => p.id === produktId);
+
+        if (sekcja.title === obecnySklep && produkt) {
+          przenoszonyProdukt = {
+            ...produkt,
+            ilosc: zmiany.ilosc ?? produkt.ilosc,
+            kategoria: zmiany.kategoria ?? produkt.kategoria,
+          };
+        }
+
+        return {
+          ...sekcja,
+          data: sekcja.data.filter((p) => p.id !== produktId),
+        };
+      })
+      .filter((sekcja) => sekcja.data.length > 0);
+
+    if (!przenoszonyProdukt) return;
+
+    const sekcjaDocelowaIstnieje = daneBezProduktu.some(
+      (sekcja) => sekcja.title === docelowySklep,
+    );
+
+    const noweDane = sekcjaDocelowaIstnieje
+      ? daneBezProduktu.map((sekcja) =>
+          sekcja.title === docelowySklep
+            ? {
+                ...sekcja,
+                data: [przenoszonyProdukt as Produkt, ...sekcja.data],
+              }
+            : sekcja,
+        )
+      : [
+          ...daneBezProduktu,
+          {
+            title: docelowySklep,
+            data: [przenoszonyProdukt],
+          },
+        ];
+
+    setDane(noweDane);
+    zapiszDane(noweDane);
+    Haptics.selectionAsync();
+  }
+
   function zwiekszIlosc(produkt: Produkt, sklep: string) {
     const krok = produkt.jednostka === 'kg' ? 50 : 1;
 
@@ -339,6 +403,7 @@ export function ShoppingProvider({ children }: { children: React.ReactNode }) {
         dodajProdukt,
         usunProdukt,
         toggleKupione,
+        edytujProdukt,
         zwiekszIlosc,
         zmniejszIlosc,
         wyczyscListe,

@@ -1,21 +1,22 @@
 {
   "expo": {
-    "name": "lista-zakupow",
+    "name": "Lista zakupów",
     "slug": "lista-zakupow",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "default",
     "icon": "./assets/images/app-icon.png",
     "scheme": "listazakupow",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/app-icon.png",
+      "bundleIdentifier": "com.justynamalek.listazakupow"
     },
     "android": {
+      "package": "com.justynamalek.listazakupow",
+      "versionCode": 2,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#F7F8F7",
+        "foregroundImage": "./assets/images/app-icon.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -28,10 +29,12 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#F7F8F7",
+          "image": "./assets/images/app-icon.png",
+          "imageWidth": 160,
           "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+            "image": "./assets/images/app-icon.png",
+            "imageWidth": 160
           }
         }
       ],
@@ -41,6 +44,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "636c688a-1245-40c8-a971-a12994b858e9"
+      }
+    },
+    "owner": "justynamaleks-organization"
   }
 }
