@@ -83,7 +83,20 @@ export default function HomeScreen() {
     'Do kupienia': true,
     Kupione: true,
   });
+  const [savedNoticeVisible, setSavedNoticeVisible] = React.useState(false);
   const isSearching = isShoppingSearchActive(searchText);
+
+  React.useEffect(() => {
+    if (!lastSavedAt) return;
+
+    setSavedNoticeVisible(true);
+
+    const timeoutId = setTimeout(() => {
+      setSavedNoticeVisible(false);
+    }, 1600);
+
+    return () => clearTimeout(timeoutId);
+  }, [lastSavedAt]);
 
   const shopColorByName = React.useMemo(() => {
     return new Map(sklepy.map((sklep) => [sklep.name, sklep.color]));
@@ -283,7 +296,7 @@ export default function HomeScreen() {
 
         {isSaving && <Text style={styles.statusText}>Zapisywanie...</Text>}
 
-        {!isSaving && !!lastSavedAt && (
+        {!isSaving && savedNoticeVisible && (
           <Text style={styles.statusText}>Zapisano</Text>
         )}
 
